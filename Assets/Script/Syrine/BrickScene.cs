@@ -10,8 +10,8 @@ using PhysicsLib;
 /// les briques sont lâchées et tombent (gravité du moteur). Aucun clic, aucun objet qui les touche.
 /// A glisser sur un GameObject VIDE d'une scène vide. Aucun Rigidbody / Collider / Physics d'Unity.
 ///
-/// Etat actuel : les briques traversent le sol et les autres briques (la résolution des collisions
-/// n'est pas encore écrite). Les contacts avec le sol sont comptés à l'écran.
+/// Collisions : sol (point-plan) + brique contre brique (sommet dans boîte), résolues par impulsions
+/// (ImpulseResolver) : les briques s'empilent sans s'interpénétrer.
 /// </summary>
 public class BrickScene : MonoBehaviour
 {
@@ -28,6 +28,10 @@ public class BrickScene : MonoBehaviour
 
     [Header("Simulation")]
     public bool useRK4 = true;
+    public float fixedDt = 0.005f;            // pas de temps du moteur (plus petit = plus précis mais plus lent)
+    public int solverIterations = 10;         // itérations du résolveur de contacts
+    public float friction = 0.5f;             // friction brique/brique et brique/sol
+    public float restitution = 0f;            // rebond (0 = pas de rebond)
 
     PhysicsWorld world;
     readonly List<RigidBody> bricks = new List<RigidBody>();
@@ -52,8 +56,26 @@ public class BrickScene : MonoBehaviour
         lastMouse = MousePosition();
 
         world = new PhysicsWorld();
+        world.FixedDt = fixedDt;
         world.AddGlobalForce(new GravityForce());
-        world.Detector = new PlaneContactDetector(Plane3.FromPointNormal(Vector3.zero, Vector3.up));
+
+        // détection : sol (plan y = 0) + brique contre brique ; résolution : impulsions + friction
+        world.Detector = new CompositeDetector(
+            new PlaneContactDetector(Plane3.FromPointNormal(Vector3.zero, Vector3.up)),
+            new BoxBoxContactDetector());
+        world.Resolver = new ImpulseResolver
+        {
+            Iterations = solverIterations,
+            Friction = friction,
+            Restitution = restitution
+        };
+
+        // le sol, dessiné avec notre CustomCube (simple affichage : le moteur n'en dépend pas)
+        GameObject floor = new GameObject("Sol");
+        CustomCube floorCube = floor.AddComponent<CustomCube>();
+        floorCube.SetColor(new Color(0.55f, 0.55f, 0.55f));
+        floorCube.ApplyTransformation(Mat3.Identity.ToMatrix4x4(new Vector3(0f, -0.1f, 0f), new Vector3(24f, 0.2f, 12f)));
+        spawned.Add(floor);
 
         IntegrationMethod method = useRK4 ? IntegrationMethod.RK4 : IntegrationMethod.Euler;
         int n = 0;
