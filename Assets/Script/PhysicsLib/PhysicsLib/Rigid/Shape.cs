@@ -3,101 +3,223 @@ using UnityEngine;
 namespace PhysicsLib
 {
     /// <summary>
-    /// Géométrie d'un corps rigide dans son repère local (centre de masse à l'origine) :
-    /// sommets, triangles, tenseur d'inertie I_body, échelle pour l'affichage.
-    /// Pour ajouter une forme : hériter de Shape.
+    /// Geometrie d'un corps rigide.
     /// </summary>
     public abstract class Shape
     {
-        /// <summary>Tenseur d'inertie I_body (matrice diagonale pour les formes simples).</summary>
         public abstract Mat3 InertiaBody(float mass);
 
-        /// <summary>Sommets en repère local.</summary>
-        public abstract Vector3[] LocalVertices { get; }
+        public abstract Vector3[] LocalVertices
+        {
+            get;
+        }
 
-        /// <summary>Triangles (indices dans LocalVertices, orientés vers l'extérieur).</summary>
-        public abstract int[] Triangles { get; }
+        public abstract int[] Triangles
+        {
+            get;
+        }
 
-        /// <summary>Échelle à appliquer au cube unitaire de CustomCube pour afficher la forme.</summary>
-        public abstract Vector3 RenderScale { get; }
+        public abstract Vector3 RenderScale
+        {
+            get;
+        }
     }
 
-    /// <summary>Parallélépipède a x b x c centré à l'origine.</summary>
+    /// <summary>
+    /// Parallelepipede centre a l'origine.
+    /// </summary>
     public class BoxShape : Shape
     {
         public readonly Vector3 Size;
+
         readonly Vector3[] verts;
         readonly int[] tris;
 
         public BoxShape(Vector3 size)
         {
             Size = size;
-            Vector3 h = size * 0.5f;
 
-            // sommet i : bit0 -> x, bit1 -> y, bit2 -> z
+            Vector3 half = size * 0.5f;
+
             verts = new Vector3[8];
-            for (int i = 0; i < 8; i++)
-                verts[i] = new Vector3(((i & 1) != 0) ? h.x : -h.x,
-                                       ((i & 2) != 0) ? h.y : -h.y,
-                                       ((i & 4) != 0) ? h.z : -h.z);
 
-            // 6 faces : (a, b, c, d) en cycle + normale sortante
+            for (int i = 0; i < 8; i++)
+            {
+                verts[i] = new Vector3(
+                    (i & 1) != 0
+                        ? half.x
+                        : -half.x,
+
+                    (i & 2) != 0
+                        ? half.y
+                        : -half.y,
+
+                    (i & 4) != 0
+                        ? half.z
+                        : -half.z
+                );
+            }
+
             int[][] quads =
             {
-                new[] { 1, 3, 7, 5 }, new[] { 0, 2, 6, 4 },   // +X, -X
-                new[] { 2, 3, 7, 6 }, new[] { 0, 1, 5, 4 },   // +Y, -Y
-                new[] { 4, 5, 7, 6 }, new[] { 0, 1, 3, 2 }    // +Z, -Z
+                new[] { 1, 3, 7, 5 },
+                new[] { 0, 2, 6, 4 },
+
+                new[] { 2, 3, 7, 6 },
+                new[] { 0, 1, 5, 4 },
+
+                new[] { 4, 5, 7, 6 },
+                new[] { 0, 1, 3, 2 }
             };
+
             Vector3[] outward =
             {
-                new Vector3(1, 0, 0), new Vector3(-1, 0, 0),
-                new Vector3(0, 1, 0), new Vector3(0, -1, 0),
-                new Vector3(0, 0, 1), new Vector3(0, 0, -1)
+                new Vector3(1f, 0f, 0f),
+                new Vector3(-1f, 0f, 0f),
+
+                new Vector3(0f, 1f, 0f),
+                new Vector3(0f, -1f, 0f),
+
+                new Vector3(0f, 0f, 1f),
+                new Vector3(0f, 0f, -1f)
             };
 
             tris = new int[36];
-            for (int f = 0; f < 6; f++)
+
+            for (int face = 0; face < 6; face++)
             {
-                int a = quads[f][0], b = quads[f][1], c = quads[f][2], d = quads[f][3];
-                Vector3 nrm = Vector3.Cross(verts[b] - verts[a], verts[c] - verts[a]);
-                if (Vector3.Dot(nrm, outward[f]) < 0f) { int tmp = b; b = d; d = tmp; }   // inverse l'orientation
-                int t = f * 6;
-                tris[t + 0] = a; tris[t + 1] = b; tris[t + 2] = c;
-                tris[t + 3] = a; tris[t + 4] = c; tris[t + 5] = d;
+                int a = quads[face][0];
+                int b = quads[face][1];
+                int c = quads[face][2];
+                int d = quads[face][3];
+
+                Vector3 normal = Vec.Cross(
+                    verts[b] - verts[a],
+                    verts[c] - verts[a]
+                );
+
+                if (Vec.Dot(normal, outward[face]) < 0f)
+                {
+                    int temp = b;
+                    b = d;
+                    d = temp;
+                }
+
+                int t = face * 6;
+
+                tris[t + 0] = a;
+                tris[t + 1] = b;
+                tris[t + 2] = c;
+
+                tris[t + 3] = a;
+                tris[t + 4] = c;
+                tris[t + 5] = d;
             }
         }
 
-        /// <summary>I_body = m/12 . diag(b²+c², a²+c², a²+b²)   (slide 33).</summary>
+        /// <summary>
+        /// Tenseur d'inertie d'un parallelepipede.
+        ///
+        /// Ixx = m(b²+c²)/12
+        /// Iyy = m(a²+c²)/12
+        /// Izz = m(a²+b²)/12
+        /// </summary>
         public override Mat3 InertiaBody(float mass)
         {
-            float a = Size.x, b = Size.y, c = Size.z;
-            return Mat3.Diag(mass / 12f * (b * b + c * c),
-                             mass / 12f * (a * a + c * c),
-                             mass / 12f * (a * a + b * b));
+            float a = Size.x;
+            float b = Size.y;
+            float c = Size.z;
+
+            return Mat3.Diag(
+                mass * (b * b + c * c) / 12f,
+                mass * (a * a + c * c) / 12f,
+                mass * (a * a + b * b) / 12f
+            );
         }
 
-        public override Vector3[] LocalVertices { get { return verts; } }
-        public override int[] Triangles { get { return tris; } }
-        public override Vector3 RenderScale { get { return Size; } }
+        public override Vector3[] LocalVertices
+        {
+            get
+            {
+                return verts;
+            }
+        }
+
+        public override int[] Triangles
+        {
+            get
+            {
+                return tris;
+            }
+        }
+
+        public override Vector3 RenderScale
+        {
+            get
+            {
+                return Size;
+            }
+        }
     }
 
-    /// <summary>Sphère pleine de rayon r : I = 2/5 m r² (même valeur sur les 3 axes).</summary>
+    /// <summary>
+    /// Sphere pleine.
+    ///
+    /// I = 2/5 * m * r²
+    ///
+    /// Attention :
+    /// cette classe ne fournit pas encore
+    /// un maillage de sphere.
+    /// </summary>
     public class SphereShape : Shape
     {
         public readonly float Radius;
-        static readonly Vector3[] none = new Vector3[0];
-        static readonly int[] noTris = new int[0];
 
-        public SphereShape(float radius) { Radius = radius; }
+        static readonly Vector3[] noVertices =
+            new Vector3[0];
+
+        static readonly int[] noTriangles =
+            new int[0];
+
+        public SphereShape(float radius)
+        {
+            Radius = radius;
+        }
 
         public override Mat3 InertiaBody(float mass)
         {
-            float i = 0.4f * mass * Radius * Radius;
-            return Mat3.Diag(i, i, i);
+            float inertia =
+                0.4f * mass * Radius * Radius;
+
+            return Mat3.Diag(
+                inertia,
+                inertia,
+                inertia
+            );
         }
 
-        public override Vector3[] LocalVertices { get { return none; } }
-        public override int[] Triangles { get { return noTris; } }
-        public override Vector3 RenderScale { get { return Vector3.one * (2f * Radius); } }
+        public override Vector3[] LocalVertices
+        {
+            get
+            {
+                return noVertices;
+            }
+        }
+
+        public override int[] Triangles
+        {
+            get
+            {
+                return noTriangles;
+            }
+        }
+
+        public override Vector3 RenderScale
+        {
+            get
+            {
+                return Vector3.one * (2f * Radius);
+            }
+        }
     }
 }
