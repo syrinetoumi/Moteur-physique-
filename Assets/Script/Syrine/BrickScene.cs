@@ -6,12 +6,12 @@ using UnityEngine.InputSystem;
 using PhysicsLib;
 
 /// <summary>
-/// Scène "Dense stacking" : un mur de briques est suspendu en l'air. Dès que la souris BOUGE,
-/// les briques sont lâchées et tombent (gravité du moteur). Aucun clic, aucun objet qui les touche.
+/// Scène "Dense stacking" : un mur de briques tient debout sur le sol. Quand tu BOUGES LA SOURIS, le sol vibre
+/// (la vibration dépend de la vitesse de la souris) et les briques tombent les unes sur les autres.
 /// A glisser sur un GameObject VIDE d'une scène vide. Aucun Rigidbody / Collider / Physics d'Unity.
 ///
-/// Collisions : sol (point-plan) + brique contre brique (sommet dans boîte), résolues par impulsions
-/// (ImpulseResolver) : les briques s'empilent sans s'interpénétrer.
+/// Moteur : gravité + secousse (ShakeForce), collisions sol (point-plan) et brique/brique (axes séparateurs),
+/// résolues par impulsions avec friction (ImpulseResolver), mise en sommeil des briques immobiles (BrickSleeper).
 /// </summary>
 public class BrickScene : MonoBehaviour
 {
@@ -19,25 +19,30 @@ public class BrickScene : MonoBehaviour
     public int columns = 4;
     public int rows = 5;
     public Vector3 brickSize = new Vector3(2f, 1f, 1f);
-    public float gap = 0.05f;                 // petit espace pour qu'aucune brique ne se chevauche au départ
-    public float startHeight = 6f;            // hauteur de départ au-dessus du sol
-    public float brickMass = 1f;
+    public float gap = 0.01f;                 // petit espace entre briques
+    public float density = 0.5f;              // masse = volume x densité (une brique 2x1x1 pèse 1)
 
-    [Header("Souris")]
-    public float moveThreshold = 2f;          // déplacement minimal de la souris (en pixels) pour lâcher les briques
+    [Header("Souris -> secousse du sol")]
+    public float speedForMaxShake = 1200f;    // vitesse de souris (pixels/s) qui donne la secousse maximale
+    public float shakeDecay = 2.5f;           // la secousse retombe à cette vitesse quand la souris s'arrête
+    public float maxShakeAcceleration = 35f;  // accélération maximale du sol (m/s²)
+    public float shakeFrequency = 1f;         // fréquence de la vibration (Hz)
 
     [Header("Simulation")]
     public bool useRK4 = true;
-    public float fixedDt = 0.005f;            // pas de temps du moteur (plus petit = plus précis mais plus lent)
+    public float fixedDt = 0.005f;            // pas de temps du moteur
     public int solverIterations = 10;         // itérations du résolveur de contacts
     public float friction = 0.5f;             // friction brique/brique et brique/sol
     public float restitution = 0f;            // rebond (0 = pas de rebond)
 
     PhysicsWorld world;
+    ShakeForce shake;
+    BrickSleeper sleeper;
     readonly List<RigidBody> bricks = new List<RigidBody>();
     readonly List<GameObject> spawned = new List<GameObject>();
-    bool released;                            // faux : briques suspendues ; vrai : la simulation tourne
     Vector3 lastMouse;
+    float intensity;                          // intensité de secousse actuelle (0..1)
+    int colorIndex;
 
     static readonly Color[] palette =
     {
@@ -52,12 +57,20 @@ public class BrickScene : MonoBehaviour
         foreach (GameObject go in spawned) Destroy(go);
         spawned.Clear();
         bricks.Clear();
-        released = false;
+        intensity = 0f;
+        colorIndex = 0;
         lastMouse = MousePosition();
 
         world = new PhysicsWorld();
         world.FixedDt = fixedDt;
+
+        shake = new ShakeForce(world);
+        shake.MaxAcceleration = maxShakeAcceleration;
+        shake.Frequency = shakeFrequency;
+        sleeper = new BrickSleeper();
+
         world.AddGlobalForce(new GravityForce());
+        world.AddGlobalForce(shake);
 
         // détection : sol (plan y = 0) + brique contre brique ; résolution : impulsions + friction
         world.Detector = new CompositeDetector(
@@ -77,39 +90,58 @@ public class BrickScene : MonoBehaviour
         floorCube.ApplyTransformation(Mat3.Identity.ToMatrix4x4(new Vector3(0f, -0.1f, 0f), new Vector3(24f, 0.2f, 12f)));
         spawned.Add(floor);
 
-        IntegrationMethod method = useRK4 ? IntegrationMethod.RK4 : IntegrationMethod.Euler;
-        int n = 0;
-        for (int r = 0; r < rows; r++)
-        {
-            float shift = (r % 2 == 1) ? brickSize.x * 0.5f : 0f;                   // briques décalées d'une rangée à l'autre
-            for (int c = 0; c < columns; c++)
-            {
-                float x = (c - (columns - 1) * 0.5f) * (brickSize.x + gap) + shift;
-                float y = startHeight + brickSize.y * 0.5f + r * (brickSize.y + gap);
-                SpawnBrick(new Vector3(x, y, 0f), palette[n % palette.Length], method);
-                n++;
-            }
-        }
+        BuildWall();
 
         if (Camera.main != null)
         {
-            Camera.main.transform.position = new Vector3(0f, 6f, -18f);
-            Camera.main.transform.rotation = Quaternion.Euler(10f, 0f, 0f);
+            Camera.main.transform.position = new Vector3(0f, 4f, -16f);
+            Camera.main.transform.rotation = Quaternion.Euler(8f, 0f, 0f);
         }
     }
 
-    void SpawnBrick(Vector3 position, Color color, IntegrationMethod method)
+    /// <summary>
+    /// Mur en appareillage : rangées paires = 'columns' briques ; rangées impaires = 'columns - 1' briques décalées
+    /// d'une demi-brique + une demi-brique à chaque bout (sinon les briques du bout seraient en équilibre sur le bord).
+    /// </summary>
+    void BuildWall()
+    {
+        float pitch = brickSize.x + gap;
+        float wallHalf = columns * pitch * 0.5f - gap * 0.5f;
+        Vector3 halfBrick = new Vector3(brickSize.x * 0.5f, brickSize.y, brickSize.z);
+
+        for (int r = 0; r < rows; r++)
+        {
+            float y = brickSize.y * 0.5f + r * (brickSize.y + gap);
+            if (r % 2 == 0)
+            {
+                for (int c = 0; c < columns; c++)
+                    SpawnBrick(brickSize, new Vector3((c - (columns - 1) * 0.5f) * pitch, y, 0f));
+            }
+            else
+            {
+                for (int c = 0; c < columns - 1; c++)
+                    SpawnBrick(brickSize, new Vector3((c - (columns - 2) * 0.5f) * pitch, y, 0f));
+                float hx = wallHalf - halfBrick.x * 0.5f;
+                SpawnBrick(halfBrick, new Vector3(-hx, y, 0f));
+                SpawnBrick(halfBrick, new Vector3(hx, y, 0f));
+            }
+        }
+    }
+
+    void SpawnBrick(Vector3 size, Vector3 position)
     {
         // 1) le corps de la simulation (notre moteur)
-        RigidBody body = new RigidBody(new BoxShape(brickSize), brickMass, position);
-        body.Method = method;
+        float mass = size.x * size.y * size.z * density;
+        RigidBody body = new RigidBody(new BoxShape(size), mass, position);
+        body.Method = useRK4 ? IntegrationMethod.RK4 : IntegrationMethod.Euler;
         world.AddBody(body);
         bricks.Add(body);
 
         // 2) l'affichage : cube construit dans le code + lien avec le corps
         GameObject go = new GameObject("Brick");
         CustomCube cube = go.AddComponent<CustomCube>();
-        cube.SetColor(color);
+        cube.SetColor(palette[colorIndex % palette.Length]);
+        colorIndex++;
         BodyView view = go.AddComponent<BodyView>();
         view.Body = body;
         spawned.Add(go);
@@ -119,16 +151,17 @@ public class BrickScene : MonoBehaviour
     {
         if (KeyPressed()) { Build(); return; }
 
-        if (!released)
-        {
-            // la souris a-t-elle bougé ? alors on lâche les briques
-            Vector3 m = MousePosition();
-            if ((m - lastMouse).sqrMagnitude > moveThreshold * moveThreshold) released = true;
-            lastMouse = m;
-            return;                            // tant qu'elles ne sont pas lâchées, le moteur ne tourne pas
-        }
+        // vitesse de la souris -> intensité de la secousse (monte tout de suite, retombe doucement)
+        float dt = Mathf.Max(Time.deltaTime, 0.0001f);
+        Vector3 m = MousePosition();
+        float speed = (m - lastMouse).magnitude / dt;
+        lastMouse = m;
+        float target = Mathf.Min(speed / speedForMaxShake, 1f);
+        intensity = Mathf.Max(target, intensity - shakeDecay * dt);
+        shake.Intensity = intensity;
 
         world.Update(Time.deltaTime);
+        sleeper.Update(bricks, Time.deltaTime, intensity);
     }
 
     static bool KeyPressed()
@@ -153,9 +186,16 @@ public class BrickScene : MonoBehaviour
 
     void OnGUI()
     {
-        GUI.Label(new Rect(10, 10, 700, 100),
-            (released ? "Briques lâchées" : "Bouge la souris pour lâcher les briques") + " | R = recommencer\n" +
-            "Briques : " + bricks.Count + " | t = " + world.Time.ToString("F2") + " s | " +
-            "contacts avec le sol : " + world.Contacts.Count);
+        // pénétration maximale entre deux briques (0 = aucune brique n'entre dans une autre)
+        float maxPen = 0f;
+        for (int i = 0; i < bricks.Count; i++)
+            for (int j = i + 1; j < bricks.Count; j++)
+                maxPen = Mathf.Max(maxPen, BoxBoxContactDetector.PenetrationDepth(bricks[i], bricks[j]));
+
+        GUI.Box(new Rect(10, 10, 600, 80),
+            "Bouge la souris pour secouer le sol | R = recommencer\n" +
+            "secousse : " + intensity.ToString("F2") + " | briques : " + bricks.Count +
+            " (endormies : " + sleeper.SleepingCount + ") | contacts : " + world.Contacts.Count + "\n" +
+            "pénétration max entre briques : " + maxPen.ToString("F3") + " m");
     }
 }
