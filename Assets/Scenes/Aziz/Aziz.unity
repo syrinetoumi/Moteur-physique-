@@ -285,24 +285,44 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c5a7e946dac383e4c95fcd9a973c1cb0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SceneGenerator
+  useVideoPreset: 0
+  enableCubes: 1
+  enableCloth: 1
+  enableSmoke: 1
   substeps: 2
   solverIterations: 4
-  cubeResolution: 4
   densityIterations: 2
-  clothReleaseTime: 0.25
-  smokeStartTime: 1.4
-  clothSwingSpeed: 6
-  clothColumns: 11
-  clothRows: 19
-  groundFriction: 0.1
-  clothParticleMass: 0.05
-  cubeMass: 3
-  maxSpeed: 7
-  airDamping: 0.8
-  gasParticleCount: 450
-  smokeMarkerCount: 150
+  cubeResolution: 5
+  cubeEdge: 1.6
+  cubeMass: 4
+  cubeStackOffset: 0.27
+  contactFriction: 0.79
+  clothColumns: 6
+  clothRows: 36
+  clothPinX: 1.4
+  clothTopY: 12.2
+  clothPinnedColumns: 1
+  clothInitialAngle: 64.9
+  clothAngularSpeed: -4.46
+  clothSideSpeed: 2.9
+  clothParticleMass: 0.091
+  smokePosition: {x: -3.4, y: 3.35, z: 0}
+  smokeDirection: {x: 1, y: 0.2, z: 0}
+  smokeSpeed: 7.38
+  smokeEmitRadius: 0.619
+  smokeEmitInterval: 0.0477
+  smokeStartTime: 2
+  gasParticleRadius: 0.16
+  gasParticleCount: 600
   gasParticleMass: 0.1
+  smokeBuoyancy: -0.322
+  smokeDrag: 6.911
+  smokeLifetime: 12.39
+  smokeMarkerCount: 100
   showSmokeMarkers: 0
+  maxSpeed: 17
+  airDamping: 0.8
+  groundFriction: 0.16
 --- !u!4 &957944136
 Transform:
   m_ObjectHideFlags: 0

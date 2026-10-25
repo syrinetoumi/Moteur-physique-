@@ -23,15 +23,18 @@ public class GasSimulation
     public int GasPhase = 500;
     public const int MarkerPhase = 501;
     public float GasRadius = 0.1f;
+    public Vector3 EmitDirection = new Vector3(1f, 0.15f, 0f);   // direction du jet
     public float GasMass = 0.03f;
 
     public float GravityScale = -0.3f;       // < 0 : le gaz monte (sec. 7.2.1)
     public float Lifetime = 5f;               // secondes avant recyclage d une particule fluide
-    public float EmitInterval = 0.08f;        // secondes entre deux couches emises
+    public float EmitInterval = 0f;           // secondes entre deux couches (0 = automatique : espacement / vitesse)
     public float InnerSpeed;                  // le coeur est emis plus vite que le bord (sec. 7.2.2)
     public float OuterSpeed;
     public float DragK = 4f;                  // k de l eq. 29
     public Vector3 EnvironmentVelocity = new Vector3(0.8f, 0f, 0f);    // v_env de l eq. 29 (vent leger vers la tour)
+    public bool RecycleOldest = true;        // pool plein : on recycle la plus ancienne particule, l'emission ne s'arrete jamais
+    public bool NozzleWall = true;           // les particules ne repassent pas derriere le disque d'emission
     public float CfmEpsilon = 5f;             // relaxation de lambda
     public int MarkersPerParticle = 1;
 
@@ -61,9 +64,10 @@ public class GasSimulation
         return (randomState & 0x00FFFFFFu) / 16777216f;
     }
 
-    public GasSimulation(Vector3 smokeSource, float radius, float speed, int gasCount, int markerCount, float gasMass = 0.03f)
+    public GasSimulation(Vector3 smokeSource, float radius, float speed, int gasCount, int markerCount, float gasMass = 0.03f, float gasRadius = 0.1f)
     {
         GasMass = gasMass;
+        GasRadius = gasRadius;
         source = smokeSource;
         sourceRadius = radius;
         InnerSpeed = speed;
@@ -141,10 +145,11 @@ public class GasSimulation
             if (markerAge[i] > Lifetime) { m.phase = -1; m.position = Parked; }
         }
 
+        float interval = EmitInterval > 0f ? EmitInterval : (2f * GasRadius) / Mathf.Max(0.1f, InnerSpeed);
         emitTimer += dt;
-        while (emitTimer >= EmitInterval)
+        while (emitTimer >= interval)
         {
-            emitTimer -= EmitInterval;
+            emitTimer -= interval;
             EmitLayer();
         }
     }
@@ -156,7 +161,14 @@ public class GasSimulation
             int i = (nextGas + s) % GasParticles.Count;
             if (GasParticles[i].phase < 0) { nextGas = (i + 1) % GasParticles.Count; return i; }
         }
-        return -1;
+        if (!RecycleOldest) return -1;
+
+        // Plus de place : la fumee doit couler EN CONTINU comme dans la video, on reutilise la plus vieille.
+        int oldest = -1;
+        float oldestAge = -1f;
+        for (int i = 0; i < GasParticles.Count; i++)
+            if (age[i] > oldestAge) { oldestAge = age[i]; oldest = i; }
+        return oldest;
     }
 
     int FreeMarker()
@@ -169,15 +181,24 @@ public class GasSimulation
         return -1;
     }
 
-    /// <summary>Une couche de particules fluides en disque ; le coeur part plus vite que le bord.</summary>
+    /// <summary>
+    /// Une couche de particules fluides en disque PERPENDICULAIRE a la direction du jet ;
+    /// le coeur part plus vite que le bord (sec. 7.2.2).
+    /// </summary>
     void EmitLayer()
     {
         float spacing = 2f * GasRadius;
+        Vector3 dir = Vec.Normalize(EmitDirection);
+        if (Vec.LengthSquared(dir) < 0.5f) dir = new Vector3(0f, 1f, 0f);
+        Vector3 helper = Mathf.Abs(dir.y) < 0.9f ? new Vector3(0f, 1f, 0f) : new Vector3(1f, 0f, 0f);
+        Vector3 u = Vec.Normalize(Vec.Cross(dir, helper));
+        Vector3 w = Vec.Cross(u, dir);
+
         int k = Mathf.CeilToInt(sourceRadius / spacing);
         for (int a = -k; a <= k; a++)
             for (int b = -k; b <= k; b++)
             {
-                Vector3 off = new Vector3(a * spacing, 0f, b * spacing);
+                Vector3 off = u * (a * spacing) + w * (b * spacing);
                 float dist = Vec.Length(off);
                 if (dist > sourceRadius + 1e-4f) continue;
                 int i = FreeGas();
@@ -185,7 +206,8 @@ public class GasSimulation
                 bool inner = dist <= sourceRadius - spacing * 0.5f;
                 Particle p = GasParticles[i];
                 p.position = source + off;
-                p.velocity = new Vector3((Random01() - 0.5f) * 0.1f, inner ? InnerSpeed : OuterSpeed, (Random01() - 0.5f) * 0.1f);
+                p.velocity = dir * (inner ? InnerSpeed : OuterSpeed)
+                           + new Vector3(Random01() - 0.5f, Random01() - 0.5f, Random01() - 0.5f) * 0.1f;
                 p.phase = GasPhase;
                 age[i] = 0f;
                 if (!inner) continue;
@@ -276,6 +298,20 @@ public class GasSimulation
         }
         for (int i = 0; i < n; i++)
             if (GasParticles[i].phase >= 0) GasParticles[i].position += dp[i];
+
+        // Buse : un jet sort d'un orifice, le fluide ne peut pas refluer derriere le disque d'emission
+        // (dans la video le bord gauche de la fumee reste fixe a l'emetteur).
+        if (NozzleWall)
+        {
+            Vector3 dir = Vec.Normalize(EmitDirection);
+            for (int i = 0; i < n; i++)
+            {
+                Particle p = GasParticles[i];
+                if (p.phase < 0) continue;
+                float s = Vec.Dot(p.position - source, dir);
+                if (s < 0f) p.position -= dir * s;
+            }
+        }
     }
 
     /// <summary>Trainee eq. 29 : f = -k (v - v_env)(1 - rho_i/rho_0). Seules les particules proches de la surface sont freinees.</summary>

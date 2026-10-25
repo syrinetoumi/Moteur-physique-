@@ -119,6 +119,42 @@ public class ClothSimulation
         parts = Particles.ToArray();
     }
 
+    /// <summary>
+    /// Ne garde accrochees que les particules de la ligne du haut dont la colonne est entre firstX et lastX
+    /// (une seule colonne = le tissu pend d'un point et peut vriller comme dans la video).
+    /// </summary>
+    public void PinOnly(int firstX, int lastX)
+    {
+        for (int x = 0; x < Width; x++)
+        {
+            Particle p = Particles[Index(x, 0)];
+            bool keep = x >= firstX && x <= lastX;
+            p.Mass = keep ? 0f : ParticleMass;
+        }
+    }
+
+    /// <summary>
+    /// Tourne tout le tissu autour de l'axe Z passant par pivot (angle en degres, positif : le bas part vers +X)
+    /// et lui donne une vitesse angulaire (rad/s, positive = sens trigonometrique). Positions et vitesses
+    /// sont ecrites directement : aucun Transform.
+    /// </summary>
+    public void SetInitialSwing(Vector3 pivot, float angleDegrees, float angularSpeed)
+    {
+        float a = angleDegrees * Mathf.PI / 180f;
+        float cs = Mathf.Cos(a), sn = Mathf.Sin(a);
+        for (int i = 0; i < Particles.Count; i++)
+        {
+            Particle p = Particles[i];
+            float rx = p.position.x - pivot.x;
+            float ry = p.position.y - pivot.y;
+            p.position = new Vector3(pivot.x + rx * cs - ry * sn, pivot.y + rx * sn + ry * cs, p.position.z);
+            if (p.IsFixed) continue;
+            float rx2 = p.position.x - pivot.x;
+            float ry2 = p.position.y - pivot.y;
+            p.velocity = new Vector3(-angularSpeed * ry2, angularSpeed * rx2, 0f);
+        }
+    }
+
     /// <summary>Lache les particules fixees de la ligne du haut entre startX et endX (indices inclus).</summary>
     public void ReleaseTopRow(int startX, int endX)
     {
