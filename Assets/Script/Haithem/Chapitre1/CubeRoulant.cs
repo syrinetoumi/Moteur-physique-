@@ -7,7 +7,6 @@ using UnityEngine.InputSystem;
 namespace Haithem.Chapitre1
 {
     // Cube qui roule avec les quaternions de PhysicsLib.
-    [RequireComponent(typeof(CustomCube))]
     public class CubeRoulant : MonoBehaviour
     {
         [Min(0.01f)] public float taille = 1f;
@@ -20,15 +19,9 @@ namespace Haithem.Chapitre1
         Vector3 depart, pivot, axe, destination;
         Quat orientationDepart;
         float progression;
-        CustomCube cube;
-        Mesh mesh;
-        Material original;
 
         void Start()
         {
-            cube = GetComponent<CustomCube>();
-            mesh = GetComponent<MeshFilter>().sharedMesh;
-            original = GetComponent<MeshRenderer>().sharedMaterial;
             Reinitialiser();
         }
 
@@ -137,19 +130,14 @@ namespace Haithem.Chapitre1
 
         void Afficher()
         {
-            if (cube != null)
-                cube.ApplyTransformation(Orientation.ToMat3().ToMatrix4x4(Position, Vector3.one * taille));
+            transform.localPosition = Position;
+            transform.localRotation = new Quaternion(Orientation.x, Orientation.y, Orientation.z, Orientation.w);
+            transform.localScale = Vector3.one * taille;
         }
 
         void OnGUI()
         {
             GUI.Label(new Rect(10, 10, 500, 25), "Flèches : déplacer le cube / Espace : tourner / R : reset");
-        }
-
-        void OnDestroy()
-        {
-            if (original != null) Destroy(original);
-            if (mesh != null) Destroy(mesh);
         }
     }
 }
