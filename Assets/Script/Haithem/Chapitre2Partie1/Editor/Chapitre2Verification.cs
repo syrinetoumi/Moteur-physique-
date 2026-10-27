@@ -55,6 +55,36 @@ namespace Haithem.Chapitre2Partie1
             return Mathf.Abs(groupe.Particles[0].position.y - y) + Mathf.Abs(groupe.Particles[0].velocity.y - v);
         }
 
+        [MenuItem("Haithem/Chapitre 2 Partie 1/Vérifier la lecture (Play Mode)")]
+        public static void VerifierLecture()
+        {
+            if (!EditorApplication.isPlaying) throw new InvalidOperationException("Lancer la scène en Play Mode.");
+            DemoParticules demo = UnityEngine.Object.FindFirstObjectByType<DemoParticules>();
+            if (demo == null) throw new InvalidOperationException("Ouvrir la scène des particules.");
+            if (demo.EnPause) demo.ChangerPause();
+            demo.Reinitialiser();
+            VerifierCondition(!demo.EnPause, "Reset ne doit pas mettre en pause");
+
+            demo.ChangerPause();
+            demo.ChoisirExemple(true);
+            VerifierCondition(demo.EnPause, "Le choix doit garder la pause demandée");
+            demo.ChangerPause();
+            demo.ChoisirExemple(false);
+            VerifierCondition(!demo.EnPause, "Le choix doit garder la lecture");
+
+            float precedent = 0f;
+            int reprises = 0;
+            for (int i = 0; i < 80; i++)
+            {
+                demo.Avancer(0.1f);
+                VerifierCondition(!demo.EnPause, "La chute ne doit pas s'arrêter toute seule");
+                if (demo.Monde.Time < precedent) reprises++;
+                precedent = demo.Monde.Time;
+            }
+            VerifierCondition(reprises >= 2, "La chute doit se rejouer");
+            Debug.Log("Lecture particules : tests OK");
+        }
+
         static float Energie(ParticleGroup groupe)
         {
             float energie = 0f;

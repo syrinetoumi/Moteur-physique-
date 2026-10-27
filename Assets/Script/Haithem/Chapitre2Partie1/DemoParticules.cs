@@ -18,9 +18,10 @@ namespace Haithem.Chapitre2Partie1
 
         PhysicsWorld monde;
         ParticleGroup euler, rk4, ressorts;
-        readonly List<CustomCube> cubes = new List<CustomCube>();
+        readonly List<Transform> cubes = new List<Transform>();
         bool exempleRessorts;
-        bool pause = true;
+        bool pause;
+        Camera camera;
         float masseDepart, frottementDepart;
         const float hauteur = 8f;
 
@@ -42,7 +43,6 @@ namespace Haithem.Chapitre2Partie1
             frottementDepart = Mathf.Max(0f, frottement);
             monde = new PhysicsWorld();
             monde.FixedDt = Mathf.Clamp(pas, 0.005f, 0.1f);
-            pause = true;
 
             if (exempleRessorts)
             {
@@ -66,7 +66,7 @@ namespace Haithem.Chapitre2Partie1
                 AjouterCube("Solution exacte");
             }
 
-            Camera camera = Camera.main;
+            camera = Camera.main;
             if (camera != null)
             {
                 camera.orthographic = false;
@@ -81,9 +81,13 @@ namespace Haithem.Chapitre2Partie1
 
         void AjouterCube(string nom)
         {
-            GameObject objet = new GameObject(nom);
-            CustomCube cube = objet.AddComponent<CustomCube>();
-            cubes.Add(cube);
+            GameObject objet = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            objet.name = nom;
+            // Le cube sert seulement à l'affichage.
+            Collider collider = objet.GetComponent<Collider>();
+            collider.enabled = false;
+            Destroy(collider);
+            cubes.Add(objet.transform);
         }
 
         public void ChangerPause() { pause = !pause; }
@@ -92,12 +96,19 @@ namespace Haithem.Chapitre2Partie1
         {
             if (pause || monde == null || dt <= 0f) return;
 
-            // La chute s'arrête après 3 secondes pour rester visible.
-            if (!exempleRessorts)
-                dt = Mathf.Min(dt, Mathf.Max(0f, 3f - monde.Time));
             monde.Update(dt);
-            if (!exempleRessorts && monde.Time >= 3f - monde.FixedDt * 0.5f)
-                pause = true;
+            if (!exempleRessorts)
+            {
+                float bas = Mathf.Min(euler.Particles[0].position.y, rk4.Particles[0].position.y);
+                bas = Mathf.Min(bas, ExperiencesParticules.HauteurExacte(monde.Time, hauteur, masseDepart, frottementDepart));
+                float limite = sol != null ? sol.position.y + 0.5f : -12.5f;
+                // On rejoue la chute, sans simuler un choc avec le sol.
+                if (bas <= limite)
+                {
+                    Reinitialiser();
+                    return;
+                }
+            }
             Afficher();
         }
 
@@ -123,7 +134,8 @@ namespace Haithem.Chapitre2Partie1
 
         void AfficherCube(int index, Vector3 position, Vector3 taille)
         {
-            cubes[index].ApplyTransformation(Mat3.Identity.ToMatrix4x4(position, taille));
+            cubes[index].localPosition = position;
+            cubes[index].localScale = taille;
         }
 
         void Afficher()
@@ -151,17 +163,27 @@ namespace Haithem.Chapitre2Partie1
 
         void OnGUI()
         {
-            GUI.Label(new Rect(10, 10, 800, 25), "1 : chute (Euler / RK4 / exacte) / 2 : ressorts / Espace : pause / R : reset");
+            GUI.Label(new Rect(10, 10, 900, 25), "1 : chute / 2 : ressorts / Espace : pause-reprendre / R : reset" + (pause ? " [PAUSE]" : ""));
+            GUI.Label(new Rect(10, 35, 1000, 25), exempleRessorts
+                ? "Ressorts amortis : les oscillations diminuent puis les masses se stabilisent."
+                : "Chute avec frottement : la comparaison se rejoue en arrivant au sol, sans collision.");
+            if (camera == null || cubes.Count < 3) return;
+            for (int i = 0; i < 3; i++)
+            {
+                string nom = exempleRessorts ? (i == 0 ? "Point fixe" : "Masse " + i)
+                    : (i == 0 ? "Euler" : i == 1 ? "RK4" : "Exacte");
+                if (!exempleRessorts) nom += " y=" + cubes[i].position.y.ToString("F3");
+                Vector3 point = camera.WorldToScreenPoint(cubes[i].position + Vector3.up * 0.7f);
+                if (point.z > 0f) GUI.Label(new Rect(point.x - 45f, Screen.height - point.y - 20f, 150f, 25f), nom);
+            }
         }
 
         void Nettoyer()
         {
-            foreach (CustomCube cube in cubes)
+            foreach (Transform cube in cubes)
             {
                 if (cube == null) continue;
                 cube.gameObject.SetActive(false);
-                Destroy(cube.GetComponent<MeshFilter>().sharedMesh);
-                Destroy(cube.GetComponent<MeshRenderer>().sharedMaterial);
                 Destroy(cube.gameObject);
             }
             cubes.Clear();
