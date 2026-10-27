@@ -128,7 +128,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 271118345}
-  - component: {fileID: 271118344}
+  - component: {fileID: 271118346}
   m_Layer: 0
   m_Name: GameObject
   m_TagString: Untagged
@@ -136,18 +136,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &271118344
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 271118343}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 69070c72682634547a626d24c1f21efa, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BrickScene
 --- !u!4 &271118345
 Transform:
   m_ObjectHideFlags: 0
@@ -163,6 +151,30 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &271118346
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 271118343}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 231695763904dcc4e8f54771d6769062, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BrickScene
+  columns: 4
+  rows: 5
+  brickSize: {x: 2, y: 1, z: 1}
+  gap: 0.01
+  density: 0.5
+  pushAngularSpeed: 1
+  broadPhase: 1
+  solverIterations: 10
+  friction: 0.5
+  restitution: 0
+  useRK4: 1
+  fixedDt: 0.005
 --- !u!1 &1669099007
 GameObject:
   m_ObjectHideFlags: 0

@@ -3,25 +3,25 @@ using UnityEngine;
 using PhysicsLib;
 
 /// <summary>
-/// Mise en sommeil des briques immobiles (idée de l'article, équation 14 : on fige une particule dont la vitesse
-/// est tombée sous un seuil). Elle supprime la petite dérive numérique d'un mur au repos.
-///  - une brique quasi immobile pendant TimeToSleep secondes est figée (vitesses remises à 0, IsStatic = true) ;
-///  - elle est réveillée dès que la secousse du sol est active, ou qu'une brique rapide s'approche d'elle.
+/// Mise en sommeil des briques immobiles (idÃ©e de l'article, Ã©quation 14 : on fige une particule dont la vitesse
+/// est tombÃ©e sous un seuil). Elle supprime la petite dÃ©rive numÃ©rique d'un mur au repos.
+///  - une brique quasi immobile pendant TimeToSleep secondes est figÃ©e (vitesses remises Ã  0, IsStatic = true) ;
+///  - elle est rÃ©veillÃ©e dÃ¨s que la secousse du sol est active, ou qu'une brique rapide s'approche d'elle.
 /// </summary>
 public class BrickSleeper
 {
     public float SpeedThreshold = 0.1f;      // vitesse (m/s) sous laquelle une brique est "immobile"
     public float AngularThreshold = 0.2f;    // vitesse de rotation (rad/s) sous laquelle elle est "immobile"
-    public float TimeToSleep = 0.6f;         // durée d'immobilité avant de s'endormir (s)
-    public float WakeSpeed = 0.6f;           // vitesse d'une brique voisine qui réveille les briques endormies (m/s)
-    public float WakeDistance = 1.0f;        // marge de proximité pour le réveil (m)
-    public float ShakeWakeLevel = 0.05f;     // intensité de secousse au-dessus de laquelle tout se réveille
+    public float TimeToSleep = 0.6f;         // durÃ©e d'immobilitÃ© avant de s'endormir (s)
+    public float WakeSpeed = 0.6f;           // vitesse d'une brique voisine qui rÃ©veille les briques endormies (m/s)
+    public float WakeDistance = 1.0f;        // marge de proximitÃ© pour le rÃ©veil (m)
+    public float ShakeWakeLevel = 0.05f;     // intensitÃ© de secousse au-dessus de laquelle tout se rÃ©veille
 
     public int SleepingCount { get; private set; }
 
     float[] still = new float[0];
 
-    /// <summary>A appeler une fois par frame, après world.Update.</summary>
+    /// <summary>A appeler une fois par frame, aprÃ¨s world.Update.</summary>
     public void Update(List<RigidBody> bricks, float dt, float shakeIntensity)
     {
         int n = bricks.Count;
@@ -34,7 +34,7 @@ public class BrickSleeper
             return;
         }
 
-        // réveil par approche : une brique rapide près d'une brique endormie la réveille
+        // rÃ©veil par approche : une brique rapide prÃ¨s d'une brique endormie la rÃ©veille
         for (int i = 0; i < n; i++)
         {
             if (!bricks[i].IsStatic) continue;
