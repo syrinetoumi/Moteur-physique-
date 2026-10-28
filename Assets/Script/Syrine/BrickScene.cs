@@ -8,8 +8,9 @@ using PhysicsLib;
 public enum BroadPhaseMode { BruteForce, SweepAndPrune, Grid }
 
 /// <summary>
-/// Simulation "Dense stacking" AUTONOME : un mur de briques NON collées entre elles reçoit une poussée au lancement
-/// (comme si on l'avait poussé), il bascule, les briques tombent et se heurtent. Aucune interaction : ni souris, ni clic.
+/// Simulation "Dense stacking" AUTONOME (comme la vidéo) : un grand mur de briques NON collées entre elles,
+/// un peu désordonné, reçoit une légère poussée au lancement ; il s'effondre en tas et les briques se heurtent
+/// pendant la chute. Aucune interaction : ni souris, ni clic.
 /// A glisser sur un GameObject VIDE d'une scène vide.  Aucun Rigidbody / Collider / Physics d'Unity.
 ///
 /// Boucle du moteur (Chapitre 4) :
@@ -18,21 +19,29 @@ public enum BroadPhaseMode { BruteForce, SweepAndPrune, Grid }
 /// </summary>
 public class BrickScene : MonoBehaviour
 {
-    [Header("Mur de briques")]
-    public int columns = 4;
-    public int rows = 5;
+    [Header("Mur de briques (non collées)")]
+    public int columns = 10;
+    public int rows = 10;
     public Vector3 brickSize = new Vector3(2f, 1f, 1f);
-    public float gap = 0.01f;                 // petit espace entre briques (elles ne sont pas collées)
+    public float gap = 0.01f;                 // petit espace entre briques
     public float density = 0.5f;              // masse = volume x densité (une brique 2x1x1 pèse 1)
 
+    [Header("Désordre initial du mur")]
+    public float rowOffset = 0.3f;            // décalage aléatoire de chaque rangée (m)
+    public float brickYaw = 3f;               // rotation aléatoire de chaque brique autour de la verticale (degrés)
+    public float brickTilt = 2f;              // petite inclinaison aléatoire de chaque brique (degrés)
+    public int seed = 7;                      // graine : même graine = même mur
+
     [Header("Poussée initiale (au lancement)")]
-    public float pushAngularSpeed = 1.0f;     // vitesse de rotation du mur (rad/s) autour de son arête avant
+    public float pushAngularSpeed = 0.15f;    // le mur penche vers la caméra à cette vitesse (rad/s)
 
     [Header("Collisions")]
     public BroadPhaseMode broadPhase = BroadPhaseMode.SweepAndPrune;
     public int solverIterations = 10;         // itérations de la réponse aux contacts
-    public float friction = 0.5f;             // friction brique/brique et brique/sol
+    public float friction = 0.9f;             // friction brique/brique et brique/sol
     public float restitution = 0f;            // rebond (0 = pas de rebond)
+    public float positionCorrection = 0.1f;   // part de la pénétration corrigée à chaque pas
+    public float airDrag = 0.5f;              // frottement de l'air  F = -k.v  (évite que les briques soient projetées trop loin)
 
     [Header("Simulation")]
     public bool useRK4 = true;
@@ -45,6 +54,7 @@ public class BrickScene : MonoBehaviour
     readonly List<GameObject> spawned = new List<GameObject>();
     int colorIndex;
     double lastMs;
+    System.Random rnd;
 
     static readonly Color[] palette =
     {
@@ -64,16 +74,20 @@ public class BrickScene : MonoBehaviour
         }
     }
 
+    float Rand() { return (float)(rnd.NextDouble() * 2.0 - 1.0); }          // nombre aléatoire dans [-1, 1]
+
     void Build()
     {
         foreach (GameObject go in spawned) Destroy(go);
         spawned.Clear();
         bricks.Clear();
         colorIndex = 0;
+        rnd = new System.Random(seed);
 
         world = new PhysicsWorld();
         world.FixedDt = fixedDt;
         world.AddGlobalForce(new GravityForce());
+        if (airDrag > 0f) world.AddGlobalForce(new ViscousDragForce(airDrag));
 
         // détection : sol (sommets sous le plan y = 0) + brique contre brique (phase large + SAT) ; réponse : impulsions
         boxDetector = new BoxBoxContactDetector();
@@ -85,7 +99,8 @@ public class BrickScene : MonoBehaviour
         {
             Iterations = solverIterations,
             Friction = friction,
-            Restitution = restitution
+            Restitution = restitution,
+            PositionCorrection = positionCorrection
         };
         sleeper = new BrickSleeper();
 
@@ -93,7 +108,7 @@ public class BrickScene : MonoBehaviour
         GameObject floor = new GameObject("Sol");
         CustomCube floorCube = floor.AddComponent<CustomCube>();
         floorCube.SetColor(new Color(0.55f, 0.55f, 0.55f));
-        floorCube.ApplyTransformation(Mat3.Identity.ToMatrix4x4(new Vector3(0f, -0.1f, 6f), new Vector3(40f, 0.2f, 30f)));
+        floorCube.ApplyTransformation(Mat3.Identity.ToMatrix4x4(new Vector3(0f, -0.1f, -10f), new Vector3(70f, 0.2f, 50f)));
         spawned.Add(floor);
 
         BuildWall();
@@ -101,14 +116,15 @@ public class BrickScene : MonoBehaviour
 
         if (Camera.main != null)
         {
-            Camera.main.transform.position = new Vector3(9f, 7f, -14f);
-            Camera.main.transform.LookAt(new Vector3(0f, 1.2f, 2.5f));
+            Camera.main.transform.position = new Vector3(0f, 6f, -30f);
+            Camera.main.transform.LookAt(new Vector3(0f, 2.5f, -3f));
         }
     }
 
     /// <summary>
     /// Mur en appareillage : rangées paires = 'columns' briques ; rangées impaires = 'columns - 1' briques décalées
-    /// d'une demi-brique + une demi-brique à chaque bout (sinon les briques du bout seraient en équilibre sur le bord).
+    /// d'une demi-brique + une demi-brique à chaque bout. Chaque rangée est décalée au hasard (rowOffset) et chaque
+    /// brique est légèrement tournée / inclinée : le mur n'est pas parfait, comme dans la vidéo.
     /// </summary>
     void BuildWall()
     {
@@ -119,31 +135,32 @@ public class BrickScene : MonoBehaviour
         for (int r = 0; r < rows; r++)
         {
             float y = brickSize.y * 0.5f + r * (brickSize.y + gap);
+            float jit = Rand() * rowOffset;
             if (r % 2 == 0)
             {
                 for (int c = 0; c < columns; c++)
-                    SpawnBrick(brickSize, new Vector3((c - (columns - 1) * 0.5f) * pitch, y, 0f));
+                    SpawnBrick(brickSize, new Vector3((c - (columns - 1) * 0.5f) * pitch + jit, y, 0f));
             }
             else
             {
                 for (int c = 0; c < columns - 1; c++)
-                    SpawnBrick(brickSize, new Vector3((c - (columns - 2) * 0.5f) * pitch, y, 0f));
+                    SpawnBrick(brickSize, new Vector3((c - (columns - 2) * 0.5f) * pitch + jit, y, 0f));
                 float hx = wallHalf - halfBrick.x * 0.5f;
-                SpawnBrick(halfBrick, new Vector3(-hx, y, 0f));
-                SpawnBrick(halfBrick, new Vector3(hx, y, 0f));
+                SpawnBrick(halfBrick, new Vector3(-hx + jit, y, 0f));
+                SpawnBrick(halfBrick, new Vector3(hx + jit, y, 0f));
             }
         }
     }
 
     /// <summary>
-    /// Poussée : le mur reçoit une rotation initiale autour de son arête avant (axe x, z = +épaisseur/2, y = 0).
-    /// Chaque brique reçoit la vitesse d'un solide en rotation  v = ω ^ (x - pivot)  et la vitesse angulaire ω.
-    /// Les briques n'étant pas collées, elles se séparent ensuite et chutent chacune selon la gravité et les collisions.
+    /// Poussée : le mur reçoit une rotation initiale autour de son arête avant (axe x, z = -épaisseur/2, y = 0),
+    /// vers la caméra. Chaque brique reçoit la vitesse d'un solide en rotation  v = ω ^ (x - pivot)  et la vitesse
+    /// angulaire ω. Les briques n'étant pas collées, elles se séparent ensuite et chutent selon la gravité et les collisions.
     /// </summary>
     void PushWall()
     {
-        Vector3 pivot = new Vector3(0f, 0f, brickSize.z * 0.5f);
-        Vector3 omega = new Vector3(pushAngularSpeed, 0f, 0f);
+        Vector3 pivot = new Vector3(0f, 0f, -brickSize.z * 0.5f);
+        Vector3 omega = new Vector3(-pushAngularSpeed, 0f, 0f);
         foreach (RigidBody b in bricks)
         {
             b.SetVelocity(Vector3.Cross(omega, b.Position - pivot));
@@ -153,10 +170,13 @@ public class BrickScene : MonoBehaviour
 
     void SpawnBrick(Vector3 size, Vector3 position)
     {
-        // 1) le corps de la simulation (notre moteur)
+        // 1) le corps de la simulation (notre moteur), légèrement tourné / incliné au hasard
         float mass = size.x * size.y * size.z * density;
         RigidBody body = new RigidBody(new BoxShape(size), mass, position);
         body.Method = useRK4 ? IntegrationMethod.RK4 : IntegrationMethod.Euler;
+        Quat yaw = Quat.FromAxisAngle(new Vector3(0f, 1f, 0f), Rand() * brickYaw * Mathf.PI / 180f);
+        Quat tilt = Quat.FromAxisAngle(new Vector3(Rand(), 0f, Rand()), Mathf.Abs(Rand()) * brickTilt * Mathf.PI / 180f);
+        body.State.R = (yaw * tilt).Normalized().ToMat3();
         world.AddBody(body);
         bricks.Add(body);
 
@@ -174,10 +194,11 @@ public class BrickScene : MonoBehaviour
     {
         if (KeyPressed()) { Build(); return; }
 
+        float dt = Mathf.Min(Time.deltaTime, 0.033f);        // évite un énorme pas si une frame est très longue
         System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
-        world.Update(Time.deltaTime);
+        world.Update(dt);
         lastMs = sw.Elapsed.TotalMilliseconds;
-        sleeper.Update(bricks, Time.deltaTime, 0f);
+        sleeper.Update(bricks, dt, 0f);
     }
 
     static bool KeyPressed()
@@ -191,17 +212,10 @@ public class BrickScene : MonoBehaviour
 
     void OnGUI()
     {
-        // pénétration maximale entre deux briques (0 = aucune brique n'entre dans une autre)
-        float maxPen = 0f;
-        for (int i = 0; i < bricks.Count; i++)
-            for (int j = i + 1; j < bricks.Count; j++)
-                maxPen = Mathf.Max(maxPen, BoxBoxContactDetector.PenetrationDepth(bricks[i], bricks[j]));
-
-        GUI.Box(new Rect(10, 10, 640, 100),
+        GUI.Box(new Rect(10, 10, 700, 80),
             "Simulation autonome | R = recommencer | phase large : " + broadPhase + "\n" +
             "t = " + world.Time.ToString("F2") + " s | briques : " + bricks.Count + " (endormies : " + sleeper.SleepingCount + ")\n" +
             "tests phase large : " + boxDetector.BroadPhase.TestCount + " | paires candidates : " + boxDetector.PairCount +
-            " | contacts : " + world.Contacts.Count + " | calcul : " + lastMs.ToString("F2") + " ms\n" +
-            "pénétration max entre briques : " + maxPen.ToString("F3") + " m");
+            " | contacts : " + world.Contacts.Count + " | calcul : " + lastMs.ToString("F1") + " ms");
     }
 }

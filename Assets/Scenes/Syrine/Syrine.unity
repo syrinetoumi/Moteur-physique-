@@ -163,16 +163,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 231695763904dcc4e8f54771d6769062, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BrickScene
-  columns: 4
-  rows: 5
+  columns: 10
+  rows: 10
   brickSize: {x: 2, y: 1, z: 1}
   gap: 0.01
   density: 0.5
-  pushAngularSpeed: 1
+  rowOffset: 0.3
+  brickYaw: 3
+  brickTilt: 2
+  seed: 7
+  pushAngularSpeed: 0.15
   broadPhase: 1
   solverIterations: 10
-  friction: 0.5
+  friction: 0.9
   restitution: 0
+  positionCorrection: 0.1
+  airDrag: 0.5
   useRK4: 1
   fixedDt: 0.005
 --- !u!1 &1669099007
