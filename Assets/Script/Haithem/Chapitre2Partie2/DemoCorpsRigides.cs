@@ -11,9 +11,10 @@ namespace Haithem.Chapitre2Partie2
     {
         public bool utiliserRK4 = true;
         PhysicsWorld monde;
-        readonly List<CustomCube> cubes = new List<CustomCube>();
+        readonly List<Transform> cubes = new List<Transform>();
         int exemple;
-        bool pause = true;
+        bool pause;
+        Camera camera;
 
         public PhysicsWorld Monde { get { return monde; } }
         public bool EnPause { get { return pause; } }
@@ -30,12 +31,15 @@ namespace Haithem.Chapitre2Partie2
         {
             Nettoyer();
             monde = ExperiencesRigides.Creer(exemple, utiliserRK4);
-            pause = true;
+            camera = Camera.main;
             for (int i = 0; i < monde.Bodies.Count; i++)
             {
-                GameObject objet = new GameObject(i == 0 ? "Corps gauche" : "Corps droit");
-                CustomCube cube = objet.AddComponent<CustomCube>();
-                cubes.Add(cube);
+                GameObject objet = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                objet.name = i == 0 ? "Corps gauche" : "Corps droit";
+                Collider collider = objet.GetComponent<Collider>();
+                collider.enabled = false;
+                Destroy(collider);
+                cubes.Add(objet.transform);
             }
             Afficher();
         }
@@ -45,8 +49,7 @@ namespace Haithem.Chapitre2Partie2
         public void Avancer(float dt)
         {
             if (pause || monde == null || dt <= 0f) return;
-            monde.Update(Mathf.Min(dt, Mathf.Max(0f, 3f - monde.Time)));
-            if (monde.Time >= 3f - monde.FixedDt * 0.5f) pause = true;
+            monde.Update(dt);
             Afficher();
         }
 
@@ -75,22 +78,44 @@ namespace Haithem.Chapitre2Partie2
         void Afficher()
         {
             for (int i = 0; i < cubes.Count; i++)
-                cubes[i].ApplyTransformation(monde.Bodies[i].ModelMatrix());
+            {
+                RigidBody corps = monde.Bodies[i];
+                cubes[i].position = corps.Position;
+                // La rotation est calculée par le moteur, puis affichée par Unity.
+                cubes[i].rotation = Quaternion.LookRotation(corps.Orientation.c2, corps.Orientation.c1);
+                cubes[i].localScale = corps.Shape.RenderScale;
+            }
+            if (camera != null)
+            {
+                // Garder les deux corps visibles pendant la translation.
+                Vector3 centre = (monde.Bodies[0].Position + monde.Bodies[1].Position) * 0.5f;
+                camera.transform.position = centre + new Vector3(0f, 4f, -12f);
+                camera.transform.LookAt(centre);
+            }
         }
 
         void OnGUI()
         {
-            GUI.Label(new Rect(10, 10, 850, 25), "1 : force et couple / 2 : inertie / 3 : rotation libre / Espace : pause / R : reset");
+            GUI.Label(new Rect(10, 10, 1000, 25), "1 : force et couple / 2 : inertie / 3 : rotation libre / Espace : pause-reprendre / R : reset" + (pause ? " [PAUSE]" : ""));
+            string explication = "Même force pendant 0,5 s : translation à gauche, translation et rotation à droite. Sans gravité.";
+            if (exemple == 1) explication = "Même masse et même force décalée : la forme change l'inertie et la rotation. Sans gravité.";
+            if (exemple == 2) explication = "Rotation libre : aucun effort extérieur, le centre reste immobile. Sans gravité.";
+            GUI.Label(new Rect(10, 35, 1100, 25), explication);
+            if (camera == null) return;
+            for (int i = 0; i < cubes.Count; i++)
+            {
+                string nom = exemple == 0 ? (i == 0 ? "Force au centre" : "Force décalée") : (i == 0 ? "Cube" : "Pavé");
+                Vector3 point = camera.WorldToScreenPoint(cubes[i].position + Vector3.up);
+                if (point.z > 0f) GUI.Label(new Rect(point.x - 45f, Screen.height - point.y - 20f, 130f, 25f), nom);
+            }
         }
 
         void Nettoyer()
         {
-            foreach (CustomCube cube in cubes)
+            foreach (Transform cube in cubes)
             {
                 if (cube == null) continue;
                 cube.gameObject.SetActive(false);
-                Destroy(cube.GetComponent<MeshFilter>().sharedMesh);
-                Destroy(cube.GetComponent<MeshRenderer>().sharedMaterial);
                 Destroy(cube.gameObject);
             }
             cubes.Clear();

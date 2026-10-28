@@ -55,6 +55,36 @@ namespace Haithem.Chapitre2Partie2
             Proche(r.Determinant(), 1f, 0.0001f, "Rotation sans déformation");
         }
 
+        [MenuItem("Haithem/Chapitre 2 Partie 2/Vérifier la lecture (Play Mode)")]
+        public static void VerifierLecture()
+        {
+            if (!EditorApplication.isPlaying) throw new InvalidOperationException("Lancer la scène en Play Mode.");
+            DemoCorpsRigides demo = UnityEngine.Object.FindFirstObjectByType<DemoCorpsRigides>();
+            if (demo == null) throw new InvalidOperationException("Ouvrir la scène des corps rigides.");
+            if (demo.EnPause) demo.ChangerPause();
+            demo.Reinitialiser();
+            VerifierCondition(!demo.EnPause, "Reset ne doit pas mettre en pause");
+            for (int mode = 0; mode < 3; mode++)
+            {
+                demo.ChoisirExemple(mode);
+                for (int i = 0; i < 100; i++) demo.Avancer(0.1f);
+                VerifierCondition(!demo.EnPause && demo.Monde.Time > 9.5f, "La simulation doit dépasser trois secondes");
+                foreach (RigidBody corps in demo.Monde.Bodies)
+                {
+                    Vector3 point = Camera.main.WorldToViewportPoint(corps.Position);
+                    VerifierCondition(point.z > 0f && point.x > 0f && point.x < 1f && point.y > 0f && point.y < 1f,
+                        "La caméra doit garder les corps visibles");
+                }
+            }
+            demo.ChangerPause();
+            float temps = demo.Monde.Time;
+            demo.Avancer(0.1f);
+            Proche(demo.Monde.Time, temps, 0.00001f, "Pause demandée");
+            demo.ChoisirExemple(0);
+            VerifierCondition(demo.EnPause, "Le choix doit garder la pause demandée");
+            Debug.Log("Lecture corps rigides : tests OK");
+        }
+
         static void Proche(float obtenu, float attendu, float tolerance, string message)
         {
             VerifierCondition(Mathf.Abs(obtenu - attendu) < tolerance, message + " : " + obtenu + " / " + attendu);
