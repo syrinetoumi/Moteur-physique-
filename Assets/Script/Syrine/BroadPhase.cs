@@ -91,45 +91,74 @@ namespace PhysicsLib
     }
 
     /// <summary>
-    /// Sweep and Prune : on trie les AABB selon min.x puis on balaie. Une AABB ne peut chevaucher que celles dont
-    /// min.x est inférieur à son max.x ; on vérifie ensuite y et z. Le tri est conservé d'une frame à l'autre
-    /// (tri par insertion : presque trié = presque gratuit).
+    /// Sweep and Prune (slides 57 à 61 et script du prof) :
+    ///  1) liste des événements : début b_i et fin e_i de l'intervalle de chaque AABB sur l'axe X ;
+    ///  2) tri de la liste (à égalité, le début passe avant la fin : deux intervalles qui se touchent se chevauchent) ;
+    ///  3) balayage croissant avec la liste des intervalles ACTIFS :
+    ///       - début de i : i chevauche tous les intervalles actifs sur X ; on vérifie Y et Z (cas 3D), puis i devient actif ;
+    ///       - fin de i   : i sort de la liste active.
+    /// Le tri est conservé d'une frame à l'autre (tri par insertion : presque trié = presque gratuit).
     /// </summary>
     public class SweepAndPruneBroadPhase : BroadPhaseBase
     {
-        int[] order = new int[0];
+        int[] events = new int[0];                 // événement e : corps = e >> 1 ; (e & 1) = 0 début, 1 fin
+        readonly List<int> active = new List<int>();
+
+        float Value(int e)
+        {
+            AABB b = boxes[e >> 1];
+            return (e & 1) == 0 ? b.min.x : b.max.x;
+        }
+
+        bool Before(int e1, int e2)
+        {
+            float v1 = Value(e1), v2 = Value(e2);
+            if (v1 != v2) return v1 < v2;
+            return (e1 & 1) == 0 && (e2 & 1) == 1;       // à égalité : début avant fin
+        }
 
         public override void FindPairs(List<RigidBody> bodies, List<int> pairs)
         {
             ComputeBoxes(bodies);
             TestCount = 0;
             int n = bodies.Count;
-            if (order.Length != n) { order = new int[n]; for (int i = 0; i < n; i++) order[i] = i; }
-
-            for (int a = 1; a < n; a++)                         // tri par insertion selon min.x
+            if (events.Length != 2 * n)
             {
-                int key = order[a];
-                float kx = boxes[key].min.x;
-                int b = a - 1;
-                while (b >= 0 && boxes[order[b]].min.x > kx) { order[b + 1] = order[b]; b--; }
-                order[b + 1] = key;
+                events = new int[2 * n];
+                for (int i = 0; i < events.Length; i++) events[i] = i;
             }
 
-            for (int a = 0; a < n; a++)                         // balayage
+            // tri par insertion des événements
+            for (int a = 1; a < events.Length; a++)
             {
-                int i = order[a];
-                for (int b = a + 1; b < n; b++)
+                int key = events[a];
+                int b = a - 1;
+                while (b >= 0 && Before(key, events[b])) { events[b + 1] = events[b]; b--; }
+                events[b + 1] = key;
+            }
+
+            // balayage avec la liste active
+            active.Clear();
+            for (int k = 0; k < events.Length; k++)
+            {
+                int e = events[k];
+                int i = e >> 1;
+                if ((e & 1) == 0)                          // début de l'intervalle i
                 {
-                    int j = order[b];
-                    if (boxes[j].min.x > boxes[i].max.x) break;
-                    if (BothStatic(bodies, i, j)) continue;
-                    TestCount++;
-                    if (boxes[i].min.y <= boxes[j].max.y && boxes[i].max.y >= boxes[j].min.y &&
-                        boxes[i].min.z <= boxes[j].max.z && boxes[i].max.z >= boxes[j].min.z)
+                    for (int m = 0; m < active.Count; m++)
                     {
-                        if (i < j) { pairs.Add(i); pairs.Add(j); } else { pairs.Add(j); pairs.Add(i); }
+                        int j = active[m];
+                        if (BothStatic(bodies, i, j)) continue;
+                        TestCount++;
+                        if (boxes[i].min.y <= boxes[j].max.y && boxes[i].max.y >= boxes[j].min.y &&
+                            boxes[i].min.z <= boxes[j].max.z && boxes[i].max.z >= boxes[j].min.z)
+                        {
+                            if (i < j) { pairs.Add(i); pairs.Add(j); } else { pairs.Add(j); pairs.Add(i); }
+                        }
                     }
+                    active.Add(i);
                 }
+                else active.Remove(i);                     // fin : l'intervalle quitte la liste active
             }
         }
     }

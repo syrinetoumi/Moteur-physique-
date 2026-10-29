@@ -181,6 +181,8 @@ MonoBehaviour:
   airDrag: 0.5
   useRK4: 1
   fixedDt: 0.005
+  timeScale: 1
+  maxFrameTime: 0.1
 --- !u!1 &1669099007
 GameObject:
   m_ObjectHideFlags: 0

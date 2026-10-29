@@ -36,6 +36,7 @@ namespace PhysicsLib
         public float k = 1f;
 
         public ViscousDragForce() { }
+
         public ViscousDragForce(float k) { this.k = k; }
 
         public Vector3 Compute(Vector3 position, Vector3 velocity, float mass) => -k * velocity;

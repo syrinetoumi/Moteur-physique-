@@ -14,9 +14,14 @@ namespace PhysicsLib
 
         void Awake() { cube = GetComponent<CustomCube>(); }
 
+        bool applied;                                    // le mesh a déjà été mis à jour au moins une fois
+
         void LateUpdate()
         {
-            if (Body != null) cube.ApplyTransformation(Body.ModelMatrix());
+            if (Body == null) return;
+            if (Body.IsStatic && applied) return;        // corps immobile / endormi : son mesh n'a pas changé, on économise le calcul
+            cube.ApplyTransformation(Body.ModelMatrix());
+            applied = true;
         }
     }
 }

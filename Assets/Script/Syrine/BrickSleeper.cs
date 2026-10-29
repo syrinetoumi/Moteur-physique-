@@ -70,4 +70,11 @@ public class BrickSleeper
         }
         SleepingCount = sleeping;
     }
+    /// <summary>Réveille une brique (ex : clic de souris) : elle redevient mobile et son compteur d'immobilité repart à 0.</summary>
+    public void Wake(List<RigidBody> bricks, RigidBody b)
+    {
+        b.IsStatic = false;
+        int i = bricks.IndexOf(b);
+        if (i >= 0 && i < still.Length) still[i] = 0f;
+    }
 }
