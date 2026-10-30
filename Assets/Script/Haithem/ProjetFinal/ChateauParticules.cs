@@ -1,11 +1,12 @@
-using PhysicsLib;
 using UnityEngine;
+using UnityEngine.Rendering;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
 
 namespace Haithem.ProjetFinal
 {
+    [ExecuteAlways]
     public class ChateauParticules : MonoBehaviour
     {
         [Range(1f, 500f)] public float masseProjectile = 500f;
@@ -13,41 +14,38 @@ namespace Haithem.ProjetFinal
         [Range(0.01f, 0.5f)] public float resistance = 0.04f;
         [Range(0f, 1f)] public float rebond = 0.45f;
         [Range(0f, 1f)] public float frottement = 0.45f;
+        [SerializeField] Mesh sphere;
+        [SerializeField] Material materiau;
 
         public ChateauSimulation Simulation { get; private set; }
         public bool EnPause { get; private set; }
-        [SerializeField] Transform[] boules;
+        public int NombreBoules { get { return Simulation == null ? 0 : Simulation.Group.Particles.Count; } }
+        Material materiauInstancie;
+        Matrix4x4[][] matrices;
 
-        void Start() { Reinitialiser(); }
+        void OnEnable()
+        {
+            RenderPipelineManager.beginContextRendering += DessinerURP;
+            Camera.onPreCull += DessinerStandard;
+            Reinitialiser();
+        }
 
         [ContextMenu("Reconstruire le château")]
         public void Reinitialiser()
         {
-            if (!Application.isPlaying) return;
+            if (sphere == null || materiau == null) return;
+            if (materiauInstancie == null)
+            {
+                // Même matériau par défaut, avec le dessin par lots activé.
+                materiauInstancie = new Material(materiau);
+                materiauInstancie.enableInstancing = true;
+                materiauInstancie.hideFlags = HideFlags.HideAndDontSave;
+            }
             Simulation = new ChateauSimulation(resistance, rebond, frottement);
-            if (boules == null || boules.Length != Simulation.Group.Particles.Count)
-            {
-                Nettoyer();
-                boules = new Transform[Simulation.Group.Particles.Count];
-            }
-            for (int i = 0; i < boules.Length; i++)
-            {
-                if (boules[i] != null)
-                {
-                    boules[i].localScale = Vector3.one * (Simulation.Group.Particles[i].Radius * 2f);
-                    continue;
-                }
-                GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                sphere.name = i == Simulation.ProjectileIndex ? "Projectile" : "Boule " + i;
-                sphere.transform.SetParent(transform, false);
-                // Unity sert seulement à afficher les boules.
-                Collider collider = sphere.GetComponent<Collider>();
-                collider.enabled = false;
-                Destroy(collider);
-                float diameter = Simulation.Group.Particles[i].Radius * 2f;
-                sphere.transform.localScale = Vector3.one * diameter;
-                boules[i] = sphere.transform;
-            }
+            int count = NombreBoules;
+            matrices = new Matrix4x4[(count + 1022) / 1023][];
+            for (int i = 0; i < matrices.Length; i++)
+                matrices[i] = new Matrix4x4[Mathf.Min(1023, count - i * 1023)];
             Afficher();
         }
 
@@ -71,6 +69,7 @@ namespace Haithem.ProjetFinal
 
         void Update()
         {
+            if (!Application.isPlaying) return;
 #if ENABLE_INPUT_SYSTEM
             Keyboard clavier = Keyboard.current;
             if (clavier != null)
@@ -89,22 +88,44 @@ namespace Haithem.ProjetFinal
 
         void Afficher()
         {
-            for (int i = 0; i < boules.Length; i++)
-                boules[i].localPosition = Simulation.Group.Particles[i].position;
-        }
-
-        void Nettoyer()
-        {
-            if (boules == null) return;
-            foreach (Transform boule in boules)
+            Matrix4x4 local = transform.localToWorldMatrix;
+            for (int i = 0; i < NombreBoules; i++)
             {
-                if (boule == null) continue;
-                boule.gameObject.SetActive(false);
-                Destroy(boule.gameObject);
+                var p = Simulation.Group.Particles[i];
+                matrices[i / 1023][i % 1023] = local
+                    * Matrix4x4.TRS(p.position, Quaternion.identity, Vector3.one * (p.Radius * 2f));
             }
-            boules = null;
         }
 
-        void OnDestroy() { Nettoyer(); }
+        void DessinerURP(ScriptableRenderContext context, System.Collections.Generic.List<Camera> cameras)
+        {
+            foreach (Camera camera in cameras) Dessiner(camera);
+        }
+
+        void DessinerStandard(Camera camera)
+        {
+            if (GraphicsSettings.currentRenderPipeline == null) Dessiner(camera);
+        }
+
+        void Dessiner(Camera camera)
+        {
+            if (matrices == null || materiauInstancie == null) return;
+            foreach (Matrix4x4[] lot in matrices)
+                Graphics.DrawMeshInstanced(sphere, 0, materiauInstancie, lot, lot.Length,
+                    null, ShadowCastingMode.On, true, gameObject.layer, camera, LightProbeUsage.Off);
+        }
+
+        void OnDisable()
+        {
+            RenderPipelineManager.beginContextRendering -= DessinerURP;
+            Camera.onPreCull -= DessinerStandard;
+            if (materiauInstancie != null)
+            {
+                if (Application.isPlaying) Destroy(materiauInstancie);
+                else DestroyImmediate(materiauInstancie);
+            }
+            materiauInstancie = null;
+            matrices = null;
+        }
     }
 }

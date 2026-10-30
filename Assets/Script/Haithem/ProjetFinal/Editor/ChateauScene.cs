@@ -20,22 +20,13 @@ namespace Haithem.ProjetFinal
 
             var root = new GameObject("Château");
             var demo = root.AddComponent<ChateauParticules>();
-            var simulation = new ChateauSimulation();
             var serialized = new SerializedObject(demo);
-            var views = serialized.FindProperty("boules");
-            views.arraySize = simulation.Group.Particles.Count;
-            for (int i = 0; i < views.arraySize; i++)
-            {
-                var particle = simulation.Group.Particles[i];
-                GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                Object.DestroyImmediate(sphere.GetComponent<Collider>());
-                sphere.name = i == simulation.ProjectileIndex ? "Projectile" : "Boule " + i;
-                sphere.transform.SetParent(root.transform, false);
-                sphere.transform.localPosition = particle.position;
-                sphere.transform.localScale = Vector3.one * (particle.Radius * 2f);
-                views.GetArrayElementAtIndex(i).objectReferenceValue = sphere.transform;
-            }
+            GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            serialized.FindProperty("sphere").objectReferenceValue = sphere.GetComponent<MeshFilter>().sharedMesh;
+            serialized.FindProperty("materiau").objectReferenceValue = sphere.GetComponent<MeshRenderer>().sharedMaterial;
+            Object.DestroyImmediate(sphere);
             serialized.ApplyModifiedPropertiesWithoutUndo();
+            demo.Reinitialiser();
 
             GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
             floor.name = "Plane";

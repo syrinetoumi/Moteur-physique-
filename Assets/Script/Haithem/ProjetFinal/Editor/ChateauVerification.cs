@@ -69,11 +69,12 @@ namespace Haithem.ProjetFinal
         {
             var watch = Stopwatch.StartNew();
             var castle = new ChateauSimulation();
-            for (int i = 0; i < 360; i++) castle.World.Step(1f / 120f);
+            float dt = castle.World.FixedDt;
+            for (int i = 0; i < Mathf.RoundToInt(3f / dt); i++) castle.World.Step(dt);
             float drift = Drift(castle);
             int before = castle.Solver.BrokenCount;
             castle.Fire();
-            for (int i = 0; i < 960; i++) castle.World.Step(1f / 120f);
+            for (int i = 0; i < Mathf.RoundToInt(8f / dt); i++) castle.World.Step(dt);
             watch.Stop();
             int moved = 0, low = 0, high = 0;
             for (int i = 0; i < castle.ProjectileIndex; i++)
@@ -106,7 +107,8 @@ namespace Haithem.ProjetFinal
             var demo = UnityEngine.Object.FindFirstObjectByType<ChateauParticules>();
             Check(demo != null, "Château présent");
             demo.Reinitialiser();
-            int children = demo.transform.childCount;
+            int count = demo.NombreBoules;
+            Check(count > 3500, "Château dense");
             Check(demo.GetComponentsInChildren<Collider>().Length == 0, "Aucun collider Unity");
             Check(demo.GetComponentsInChildren<Rigidbody>().Length == 0, "Aucun Rigidbody Unity");
             demo.ChangerPause();
@@ -119,7 +121,7 @@ namespace Haithem.ProjetFinal
             demo.Reinitialiser();
             Check(!demo.Simulation.Fired && demo.Simulation.Solver.BrokenCount == 0,
                 "Reset du projectile et des liaisons");
-            Check(demo.transform.childCount == children && children == demo.Simulation.Group.Particles.Count,
+            Check(demo.NombreBoules == count && demo.transform.childCount == 0,
                 "Reset sans doublons");
             Check(demo.EnPause, "Reset conserve la pause");
             demo.ChangerPause();

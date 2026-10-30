@@ -17,8 +17,9 @@ namespace Haithem.ProjetFinal
 
         public ChateauSimulation(float strength = 0.04f, float bounce = 0.45f, float friction = 0.45f)
         {
-            World.FixedDt = 1f / 120f;
-            World.MaxStepsPerUpdate = 12;
+            World.FixedDt = 1f / 60f;
+            World.MaxStepsPerUpdate = 2;
+            Solver.Iterations = 2;
             Group.Integrator = new EulerIntegrator();
             Group.Solver = Solver;
             // Le château attend au repos, puis se réveille au tir.
@@ -31,21 +32,31 @@ namespace Haithem.ProjetFinal
             World.AddParticleGroup(Group);
 
             var points = new Dictionary<Vector3Int, int>();
-            for (int y = 0; y < 9; y++)
-            for (int x = -7; x <= 7; x++)
-            for (int z = -5; z <= 5; z++)
+            const int detail = 3;
+            const float spacing = 0.5f / detail;
+            for (int y = 0; y < 9 * detail; y++)
+            for (int x = -7 * detail; x <= 7 * detail; x++)
+            for (int z = -5 * detail; z <= 5 * detail; z++)
             {
-                bool tower = Mathf.Abs(x) >= 5 && Mathf.Abs(z) >= 3;
-                bool wall = (Mathf.Abs(x) == 7 || Mathf.Abs(z) == 5) && y < 5;
-                bool battlement = y == 5 && (Mathf.Abs(x) == 7 || Mathf.Abs(z) == 5)
-                    && (x + z) % 2 == 0;
-                bool door = z == -5 && Mathf.Abs(x) <= 1 && y < 3;
-                bool towerTop = y == 8 && Mathf.Abs(x) != 7 && Mathf.Abs(z) != 5;
+                int ax = Mathf.Abs(x), az = Mathf.Abs(z);
+                // Les tours sont creuses pour éviter les particules cachées.
+                bool tower = ax >= 5 * detail && az >= 3 * detail
+                    && (ax == 5 * detail || ax == 7 * detail || az == 3 * detail || az == 5 * detail);
+                bool edge = ax == 7 * detail || az == 5 * detail;
+                bool wall = edge && y < 5 * detail;
+                bool battlement = y >= 5 * detail && y < 6 * detail && edge
+                    && ((x + 7 * detail) / detail + (z + 5 * detail) / detail) % 2 == 0;
+                bool door = z == -5 * detail && ax <= detail && y < 3 * detail;
+                bool towerTop = y >= 8 * detail && ax != 7 * detail && az != 5 * detail;
                 if ((!tower && !wall && !battlement) || door || towerTop) continue;
-                Vector3 position = new Vector3(x * 0.5f, 0.25f + y * 0.5f, z * 0.5f);
+                Vector3 position = new Vector3(x * spacing, spacing * 0.5f + y * spacing, z * spacing);
                 // La première rangée forme les fondations.
-                points.Add(new Vector3Int(x, y, z), Add(position, y == 0 ? 0f : 1f, 0.25f));
+                points.Add(new Vector3Int(x, y, z), Add(position, y == 0 ? 0f : 1f, spacing * 0.5f));
             }
+
+            // La masse totale reste proche de celle du premier château.
+            foreach (Particle p in Group.Particles)
+                if (!p.IsFixed) p.Mass = 451f / Group.Particles.Count;
 
             // Les diagonales empêchent les murs de se plier tout seuls.
             foreach (var point in points)
