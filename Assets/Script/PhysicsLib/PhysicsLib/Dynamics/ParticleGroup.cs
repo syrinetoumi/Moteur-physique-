@@ -13,6 +13,8 @@ namespace PhysicsLib
         public List<IForce> Forces = new List<IForce>();
         public List<IPairForce> PairForces = new List<IPairForce>();
         public IIntegrator Integrator = new RK4Integrator();
+        public ParticleSolver Solver;
+        public bool IsSleeping;
 
         Vector3[] x = new Vector3[0], v = new Vector3[0], f = new Vector3[0];
         AccelerationFunc accelFunc;
@@ -24,7 +26,8 @@ namespace PhysicsLib
         public void Step(float dt)
         {
             int n = Particles.Count;
-            if (n == 0) return;
+            if (n == 0 || IsSleeping) return;
+            if (Solver != null) Solver.Prepare(Particles);
             if (x.Length != n) { x = new Vector3[n]; v = new Vector3[n]; f = new Vector3[n]; }
 
             for (int i = 0; i < n; i++) { x[i] = Particles[i].position; v[i] = Particles[i].velocity; }
@@ -32,6 +35,7 @@ namespace PhysicsLib
             Integrator.Step(x, v, dt, accelFunc);
 
             for (int i = 0; i < n; i++) { Particles[i].position = x[i]; Particles[i].velocity = v[i]; }
+            if (Solver != null) Solver.Resolve(Particles, dt);
         }
 
         void Accelerations(Vector3[] xs, Vector3[] vs, Vector3[] aOut)

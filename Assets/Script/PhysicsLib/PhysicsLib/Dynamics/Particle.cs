@@ -11,6 +11,7 @@ namespace PhysicsLib
         public Vector3 position;
         public Vector3 velocity;
         public int phase;
+        public float Radius = 0.5f;
 
         float mass;
         float invMass;
