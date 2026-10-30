@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Haithem.ProjetFinal
 {
-    public static class ChateauVerification
+    public static class BlocVerification
     {
         [MenuItem("Haithem/Projet final/Vérifier les calculs")]
         public static void Verifier()
@@ -60,7 +60,7 @@ namespace Haithem.ProjetFinal
         }
 
         [MenuItem("Haithem/Projet final/Vérifier l'effondrement")]
-        public static void VerifierChateau()
+        public static void VerifierBloc()
         {
             UnityEngine.Debug.Log(Mesurer());
         }
@@ -68,35 +68,40 @@ namespace Haithem.ProjetFinal
         public static string Mesurer()
         {
             var watch = Stopwatch.StartNew();
-            var castle = new ChateauSimulation();
-            float dt = castle.World.FixedDt;
-            for (int i = 0; i < Mathf.RoundToInt(3f / dt); i++) castle.World.Step(dt);
-            float drift = Drift(castle);
-            int before = castle.Solver.BrokenCount;
-            castle.Fire();
-            for (int i = 0; i < Mathf.RoundToInt(8f / dt); i++) castle.World.Step(dt);
+            var block = new BlocSimulation();
+            Check(block.ProjectileIndex == 24 * 20 * 10, "Bloc entièrement rempli");
+            Check(block.InitialPositions.Exists(p => Vector3.Distance(p,
+                new Vector3(1f / 12f, 1.75f, 1f / 12f)) < 0.0001f), "Particules à l'intérieur du bloc");
+            Check(block.Group.Particles[block.ProjectileIndex].position.y == 8f, "Projectile en hauteur");
+            float dt = block.World.FixedDt;
+            for (int i = 0; i < Mathf.RoundToInt(3f / dt); i++) block.World.Step(dt);
+            float drift = Drift(block);
+            int before = block.Solver.BrokenCount;
+            block.Fire();
+            Check(block.Group.Particles[block.ProjectileIndex].velocity.y < 0f, "Tir vers le bas");
+            for (int i = 0; i < Mathf.RoundToInt(8f / dt); i++) block.World.Step(dt);
             watch.Stop();
             int moved = 0, low = 0, high = 0;
-            for (int i = 0; i < castle.ProjectileIndex; i++)
+            for (int i = 0; i < block.ProjectileIndex; i++)
             {
-                Particle p = castle.Group.Particles[i];
+                Particle p = block.Group.Particles[i];
                 Check(!float.IsNaN(p.position.sqrMagnitude) && !float.IsInfinity(p.position.sqrMagnitude)
                     && !float.IsNaN(p.velocity.sqrMagnitude) && !float.IsInfinity(p.velocity.sqrMagnitude),
                     "Positions et vitesses finies");
                 Check(p.position.y >= p.Radius - 0.002f, "Pas de traversée du sol");
-                if (Vector3.Distance(p.position, castle.InitialPositions[i]) > 0.75f) moved++;
-                if (castle.InitialPositions[i].y > 2f)
+                if (Vector3.Distance(p.position, block.InitialPositions[i]) > 0.75f) moved++;
+                if (block.InitialPositions[i].y > 2f)
                 {
                     high++;
                     if (p.position.y < 1.25f) low++;
                 }
             }
-            Check(before == 0 && drift < 0.2f, "Château stable avant le tir");
-            Check(moved > castle.ProjectileIndex * 0.65f && low > high * 0.65f,
-                "Le tir doit faire tomber la majorité du château");
-            return "Particules=" + castle.ProjectileIndex + " liens=" + castle.Solver.Links.Count
+            Check(before == 0 && drift < 0.2f, "Bloc stable avant le tir");
+            Check(moved > block.ProjectileIndex * 0.65f && low > high * 0.65f,
+                "Le tir doit faire tomber la majorité du bloc");
+            return "Particules=" + block.ProjectileIndex + " liens=" + block.Solver.Links.Count
                 + " dérive=" + drift + " ruptures avant=" + before
-                + " après=" + castle.Solver.BrokenCount + " déplacées=" + moved
+                + " après=" + block.Solver.BrokenCount + " déplacées=" + moved
                 + " haut tombées=" + low + "/" + high + " durée ms=" + watch.ElapsedMilliseconds;
         }
 
@@ -104,11 +109,11 @@ namespace Haithem.ProjetFinal
         public static void VerifierScene()
         {
             Check(EditorApplication.isPlaying, "Lancer la scène avant ce test");
-            var demo = UnityEngine.Object.FindFirstObjectByType<ChateauParticules>();
-            Check(demo != null, "Château présent");
+            var demo = UnityEngine.Object.FindFirstObjectByType<BlocParticules>();
+            Check(demo != null, "Bloc présent");
             demo.Reinitialiser();
             int count = demo.NombreBoules;
-            Check(count > 3500, "Château dense");
+            Check(count > 3500, "Bloc dense");
             Check(demo.GetComponentsInChildren<Collider>().Length == 0, "Aucun collider Unity");
             Check(demo.GetComponentsInChildren<Rigidbody>().Length == 0, "Aucun Rigidbody Unity");
             demo.ChangerPause();
@@ -121,7 +126,7 @@ namespace Haithem.ProjetFinal
             demo.Reinitialiser();
             Check(!demo.Simulation.Fired && demo.Simulation.Solver.BrokenCount == 0,
                 "Reset du projectile et des liaisons");
-            Check(demo.NombreBoules == count && demo.transform.childCount == 0,
+            Check(demo.NombreBoules == count && demo.GetComponentsInChildren<MeshRenderer>().Length == count,
                 "Reset sans doublons");
             Check(demo.EnPause, "Reset conserve la pause");
             demo.ChangerPause();
@@ -131,12 +136,12 @@ namespace Haithem.ProjetFinal
             UnityEngine.Debug.Log("Projet final : scène, pause, tir et reset OK");
         }
 
-        static float Drift(ChateauSimulation castle)
+        static float Drift(BlocSimulation block)
         {
             float result = 0f;
-            for (int i = 0; i < castle.ProjectileIndex; i++)
-                result = Mathf.Max(result, Vector3.Distance(castle.Group.Particles[i].position,
-                    castle.InitialPositions[i]));
+            for (int i = 0; i < block.ProjectileIndex; i++)
+                result = Mathf.Max(result, Vector3.Distance(block.Group.Particles[i].position,
+                    block.InitialPositions[i]));
             return result;
         }
 

@@ -6,9 +6,9 @@ using UnityEngine.SceneManagement;
 
 namespace Haithem.ProjetFinal
 {
-    public static class ChateauScene
+    public static class BlocScene
     {
-        public const string Path = "Assets/Scene/Haithem/ProjetFinal/ChateauParticules.unity";
+        public const string Path = "Assets/Scene/Haithem/ProjetFinal/BlocParticules.unity";
 
         [MenuItem("Haithem/Projet final/Créer la scène")]
         public static void Creer()
@@ -18,8 +18,8 @@ namespace Haithem.ProjetFinal
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
             SceneManager.SetActiveScene(scene);
 
-            var root = new GameObject("Château");
-            var demo = root.AddComponent<ChateauParticules>();
+            var root = new GameObject("Bloc de particules");
+            var demo = root.AddComponent<BlocParticules>();
             var serialized = new SerializedObject(demo);
             GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             serialized.FindProperty("sphere").objectReferenceValue = sphere.GetComponent<MeshFilter>().sharedMesh;
@@ -38,8 +38,8 @@ namespace Haithem.ProjetFinal
             var camera = cameraObject.GetComponent<Camera>();
             camera.fieldOfView = 52f;
             camera.farClipPlane = 150f;
-            cameraObject.transform.position = new Vector3(13f, 11f, -19f);
-            cameraObject.transform.LookAt(new Vector3(0f, 1.5f, -1.5f));
+            cameraObject.transform.position = new Vector3(11f, 10f, -17f);
+            cameraObject.transform.LookAt(new Vector3(0f, 3f, -2f));
 
             var lightObject = new GameObject("Directional Light", typeof(Light));
             var light = lightObject.GetComponent<Light>();
