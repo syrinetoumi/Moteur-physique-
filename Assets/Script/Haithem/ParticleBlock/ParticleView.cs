@@ -1,9 +1,9 @@
 using PhysicsLib;
 using UnityEngine;
 
-namespace Haithem.ProjetFinal
+namespace Haithem.ParticleBlock
 {
-    public class Particule : MonoBehaviour
+    public class ParticleView : MonoBehaviour
     {
         Particle corps;
         Transform repere;

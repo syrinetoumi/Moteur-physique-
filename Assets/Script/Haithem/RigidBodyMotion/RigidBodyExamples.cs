@@ -1,9 +1,9 @@
 using PhysicsLib;
 using UnityEngine;
 
-namespace Haithem.Chapitre2Partie2
+namespace Haithem.RigidBodyMotion
 {
-    public static class ExperiencesRigides
+    public static class RigidBodyExamples
     {
         public static PhysicsWorld Creer(int exemple, bool utiliserRK4)
         {

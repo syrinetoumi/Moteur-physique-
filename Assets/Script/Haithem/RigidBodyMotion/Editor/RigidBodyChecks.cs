@@ -3,14 +3,14 @@ using PhysicsLib;
 using UnityEditor;
 using UnityEngine;
 
-namespace Haithem.Chapitre2Partie2
+namespace Haithem.RigidBodyMotion
 {
-    public static class CorpsRigidesVerification
+    public static class RigidBodyChecks
     {
-        [MenuItem("Haithem/Chapitre 2 Partie 2/Vérifier les calculs")]
+        [MenuItem("Haithem/RigidBodyMotion/Vérifier les calculs")]
         public static void Verifier()
         {
-            PhysicsWorld forces = ExperiencesRigides.Creer(0, true);
+            PhysicsWorld forces = RigidBodyExamples.Creer(0, true);
             for (int i = 0; i < 500; i++) forces.Step(0.002f);
             RigidBody centre = forces.Bodies[0];
             RigidBody decale = forces.Bodies[1];
@@ -21,13 +21,13 @@ namespace Haithem.Chapitre2Partie2
             VerifierCondition(decale.State.L.z < -0.1f, "Rotation avec une force décalée");
             VerifierCondition(centre.AppliedForces.Count == 0 && decale.AppliedForces.Count == 0, "Forces terminées");
 
-            PhysicsWorld inertie = ExperiencesRigides.Creer(1, true);
+            PhysicsWorld inertie = RigidBodyExamples.Creer(1, true);
             Proche(inertie.Bodies[0].InertiaWorld.c2.z, 1f / 6f, 0.00001f, "Inertie du cube");
             Proche(inertie.Bodies[1].InertiaWorld.c2.z, 4.25f / 12f, 0.00001f, "Inertie du pavé");
             for (int i = 0; i < 5; i++) inertie.Step(0.002f);
             VerifierCondition(Mathf.Abs(inertie.Bodies[0].AngularVelocity.z) > Mathf.Abs(inertie.Bodies[1].AngularVelocity.z), "Le cube tourne plus vite au départ");
 
-            PhysicsWorld libre = ExperiencesRigides.Creer(2, true);
+            PhysicsWorld libre = RigidBodyExamples.Creer(2, true);
             Vector3[] moments = { libre.Bodies[0].State.L, libre.Bodies[1].State.L };
             float[] energies = { libre.Bodies[0].KineticEnergy, libre.Bodies[1].KineticEnergy };
             for (int i = 0; i < 1500; i++) libre.Step(0.002f);
@@ -40,7 +40,7 @@ namespace Haithem.Chapitre2Partie2
                 VerifierOrientation(corps.Orientation);
             }
 
-            PhysicsWorld euler = ExperiencesRigides.Creer(2, false);
+            PhysicsWorld euler = RigidBodyExamples.Creer(2, false);
             for (int i = 0; i < 1500; i++) euler.Step(0.002f);
             VerifierOrientation(euler.Bodies[1].Orientation);
             Debug.Log("Chapitre 2 partie 2 : tests OK");
@@ -55,11 +55,11 @@ namespace Haithem.Chapitre2Partie2
             Proche(r.Determinant(), 1f, 0.0001f, "Rotation sans déformation");
         }
 
-        [MenuItem("Haithem/Chapitre 2 Partie 2/Vérifier la lecture (Play Mode)")]
+        [MenuItem("Haithem/RigidBodyMotion/Vérifier la lecture (Play Mode)")]
         public static void VerifierLecture()
         {
             if (!EditorApplication.isPlaying) throw new InvalidOperationException("Lancer la scène en Play Mode.");
-            DemoCorpsRigides demo = UnityEngine.Object.FindFirstObjectByType<DemoCorpsRigides>();
+            RigidBodyDemo demo = UnityEngine.Object.FindFirstObjectByType<RigidBodyDemo>();
             if (demo == null) throw new InvalidOperationException("Ouvrir la scène des corps rigides.");
             if (demo.EnPause) demo.ChangerPause();
             demo.Reinitialiser();

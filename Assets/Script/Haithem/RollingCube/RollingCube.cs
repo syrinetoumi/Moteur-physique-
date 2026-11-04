@@ -4,10 +4,10 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 #endif
 
-namespace Haithem.Chapitre1
+namespace Haithem.RollingCube
 {
     // Cube qui roule avec les quaternions de PhysicsLib.
-    public class CubeRoulant : MonoBehaviour
+    public class RollingCube : MonoBehaviour
     {
         [Min(0.01f)] public float taille = 1f;
         [Min(0.01f)] public float dureeTour = 0.3f;

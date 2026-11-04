@@ -1,10 +1,10 @@
 using PhysicsLib;
 using UnityEngine;
 
-namespace Haithem.Chapitre2Partie1
+namespace Haithem.ParticleMotion
 {
     // Euler avec la vitesse et l'accélération du début du pas.
-    public class EulerExplicite : IIntegrator
+    public class ExplicitEuler : IIntegrator
     {
         Vector3[] acceleration = new Vector3[0];
 

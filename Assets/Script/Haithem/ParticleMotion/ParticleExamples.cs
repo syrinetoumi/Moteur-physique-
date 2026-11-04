@@ -1,9 +1,9 @@
 using PhysicsLib;
 using UnityEngine;
 
-namespace Haithem.Chapitre2Partie1
+namespace Haithem.ParticleMotion
 {
-    public static class ExperiencesParticules
+    public static class ParticleExamples
     {
         public static ParticleGroup CreerChute(IIntegrator methode, float x, float hauteur, float masse, float frottement)
         {

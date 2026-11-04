@@ -2,16 +2,16 @@ using System.Collections.Generic;
 using PhysicsLib;
 using UnityEngine;
 
-namespace Haithem.ProjetFinal
+namespace Haithem.ParticleBlock
 {
-    public class BlocSimulation
+    public class BlockSimulation
     {
         public const int Width = 24, Height = 20, Depth = 10;
         public readonly PhysicsWorld World = new PhysicsWorld();
         public readonly ParticleGroup Group = new ParticleGroup();
         public readonly ParticleSolver Solver = new ParticleSolver();
         public readonly List<Vector3> InitialPositions = new List<Vector3>();
-        public BlocSimulation(float strength = 0.04f, float bounce = 0.45f,
+        public BlockSimulation(float strength = 0.04f, float bounce = 0.45f,
             float friction = 0.45f, float taille = 1f)
         {
             World.FixedDt = 1f / 60f;

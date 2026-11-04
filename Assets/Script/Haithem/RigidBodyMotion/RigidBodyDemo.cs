@@ -5,9 +5,9 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 #endif
 
-namespace Haithem.Chapitre2Partie2
+namespace Haithem.RigidBodyMotion
 {
-    public class DemoCorpsRigides : MonoBehaviour
+    public class RigidBodyDemo : MonoBehaviour
     {
         public bool utiliserRK4 = true;
         PhysicsWorld monde;
@@ -30,7 +30,7 @@ namespace Haithem.Chapitre2Partie2
         public void Reinitialiser()
         {
             Nettoyer();
-            monde = ExperiencesRigides.Creer(exemple, utiliserRK4);
+            monde = RigidBodyExamples.Creer(exemple, utiliserRK4);
             camera = Camera.main;
             for (int i = 0; i < monde.Bodies.Count; i++)
             {

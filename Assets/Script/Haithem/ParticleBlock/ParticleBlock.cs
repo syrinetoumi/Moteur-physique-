@@ -1,21 +1,21 @@
 using UnityEngine;
 
-namespace Haithem.ProjetFinal
+namespace Haithem.ParticleBlock
 {
-    public class BlocParticules : MonoBehaviour
+    public class ParticleBlock : MonoBehaviour
     {
         [Range(0.01f, 0.5f)] public float resistance = 0.04f;
         [Range(0f, 1f)] public float rebond = 0.45f;
         [Range(0f, 1f)] public float frottement = 0.45f;
         [SerializeField] Transform groupeParticules;
-        [SerializeField] Particule[] particules;
+        [SerializeField] ParticleView[] particules;
 
-        public BlocSimulation Simulation { get; private set; }
+        public BlockSimulation Simulation { get; private set; }
 
         void Awake()
         {
             // Le bloc est prêt avant le Start du projectile.
-            Simulation = new BlocSimulation(resistance, rebond, frottement,
+            Simulation = new BlockSimulation(resistance, rebond, frottement,
                 groupeParticules.localScale.x);
             for (int i = 0; i < particules.Length; i++)
                 particules[i].Initialiser(Simulation.Group.Particles[i], transform);

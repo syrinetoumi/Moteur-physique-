@@ -501,7 +501,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f580aff5af004724d91053e9b99661c4, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Haithem.Chapitre2Partie1.DemoParticules
+  m_EditorClassIdentifier: Assembly-CSharp::Haithem.ParticleMotion.ParticleDemo
   sol: {fileID: 728075775}
   pas: 0.05
   masse: 1

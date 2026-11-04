@@ -5,9 +5,9 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 #endif
 
-namespace Haithem.Chapitre2Partie1
+namespace Haithem.ParticleMotion
 {
-    public class DemoParticules : MonoBehaviour
+    public class ParticleDemo : MonoBehaviour
     {
         public Transform sol;
         [Range(0.005f, 0.1f)] public float pas = 0.05f;
@@ -46,7 +46,7 @@ namespace Haithem.Chapitre2Partie1
 
             if (exempleRessorts)
             {
-                ressorts = ExperiencesParticules.CreerRessorts(masseDepart,
+                ressorts = ParticleExamples.CreerRessorts(masseDepart,
                     Mathf.Max(0.1f, raideur), Mathf.Max(0f, amortissement));
                 monde.AddParticleGroup(ressorts);
                 AjouterCube("Point fixe");
@@ -57,8 +57,8 @@ namespace Haithem.Chapitre2Partie1
             }
             else
             {
-                euler = ExperiencesParticules.CreerChute(new EulerExplicite(), -3f, hauteur, masseDepart, frottementDepart);
-                rk4 = ExperiencesParticules.CreerChute(new RK4Integrator(), 0f, hauteur, masseDepart, frottementDepart);
+                euler = ParticleExamples.CreerChute(new ExplicitEuler(), -3f, hauteur, masseDepart, frottementDepart);
+                rk4 = ParticleExamples.CreerChute(new RK4Integrator(), 0f, hauteur, masseDepart, frottementDepart);
                 monde.AddParticleGroup(euler);
                 monde.AddParticleGroup(rk4);
                 AjouterCube("Euler");
@@ -100,7 +100,7 @@ namespace Haithem.Chapitre2Partie1
             if (!exempleRessorts)
             {
                 float bas = Mathf.Min(euler.Particles[0].position.y, rk4.Particles[0].position.y);
-                bas = Mathf.Min(bas, ExperiencesParticules.HauteurExacte(monde.Time, hauteur, masseDepart, frottementDepart));
+                bas = Mathf.Min(bas, ParticleExamples.HauteurExacte(monde.Time, hauteur, masseDepart, frottementDepart));
                 float limite = sol != null ? sol.position.y + 0.5f : -12.5f;
                 // On rejoue la chute, sans simuler un choc avec le sol.
                 if (bas <= limite)
@@ -156,7 +156,7 @@ namespace Haithem.Chapitre2Partie1
             {
                 AfficherCube(0, euler.Particles[0].position, Vector3.one);
                 AfficherCube(1, rk4.Particles[0].position, Vector3.one);
-                float y = ExperiencesParticules.HauteurExacte(monde.Time, hauteur, masseDepart, frottementDepart);
+                float y = ParticleExamples.HauteurExacte(monde.Time, hauteur, masseDepart, frottementDepart);
                 AfficherCube(2, new Vector3(3f, y, 0f), Vector3.one);
             }
         }

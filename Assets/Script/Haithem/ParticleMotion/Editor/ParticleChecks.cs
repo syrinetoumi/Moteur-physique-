@@ -3,15 +3,15 @@ using PhysicsLib;
 using UnityEditor;
 using UnityEngine;
 
-namespace Haithem.Chapitre2Partie1
+namespace Haithem.ParticleMotion
 {
     // Tests des calculs, sans lancer la scène.
-    public static class Chapitre2Verification
+    public static class ParticleChecks
     {
-        [MenuItem("Haithem/Chapitre 2 Partie 1/Vérifier les calculs")]
+        [MenuItem("Haithem/ParticleMotion/Vérifier les calculs")]
         public static void Verifier()
         {
-            ParticleGroup debut = ExperiencesParticules.CreerChute(new EulerExplicite(), 0f, 8f, 1f, 1f);
+            ParticleGroup debut = ParticleExamples.CreerChute(new ExplicitEuler(), 0f, 8f, 1f, 1f);
             debut.Step(0.1f);
             Proche(debut.Particles[0].position.y, 8f, 0.00001f, "Euler utilise l'ancienne vitesse");
             Proche(debut.Particles[0].velocity.y, -0.981f, 0.00001f, "Accélération au départ");
@@ -24,12 +24,12 @@ namespace Haithem.Chapitre2Partie1
             VerifierCondition(rk4Fin < rk4 * 0.8f, "RK4 devient plus précis avec un pas plus petit");
             VerifierCondition(rk4Fin < eulerFin * 0.01f, "RK4 est plus précis sur cette chute");
 
-            ParticleGroup sansFrottement = ExperiencesParticules.CreerChute(new RK4Integrator(), 0f, 8f, 2f, 0f);
+            ParticleGroup sansFrottement = ParticleExamples.CreerChute(new RK4Integrator(), 0f, 8f, 2f, 0f);
             for (int i = 0; i < 100; i++) sansFrottement.Step(0.01f);
             Proche(sansFrottement.Particles[0].position.y, 8f - 9.81f * 0.5f, 0.0001f, "Chute sans frottement");
-            Proche(ExperiencesParticules.HauteurExacte(1f, 8f, 2f, 0f), sansFrottement.Particles[0].position.y, 0.0001f, "Solution exacte sans frottement");
+            Proche(ParticleExamples.HauteurExacte(1f, 8f, 2f, 0f), sansFrottement.Particles[0].position.y, 0.0001f, "Solution exacte sans frottement");
 
-            ParticleGroup ressorts = ExperiencesParticules.CreerRessorts(0.5f, 20f, 1.5f);
+            ParticleGroup ressorts = ParticleExamples.CreerRessorts(0.5f, 20f, 1.5f);
             Vector3 attache = ressorts.Particles[0].position;
             float energieDepart = Energie(ressorts);
             for (int i = 0; i < 2000; i++) ressorts.Step(0.01f);
@@ -46,20 +46,20 @@ namespace Haithem.Chapitre2Partie1
 
         static float ErreurChute(float dt, bool utiliserRK4)
         {
-            IIntegrator methode = utiliserRK4 ? (IIntegrator)new RK4Integrator() : new EulerExplicite();
-            ParticleGroup groupe = ExperiencesParticules.CreerChute(methode, 0f, 8f, 1f, 1f);
+            IIntegrator methode = utiliserRK4 ? (IIntegrator)new RK4Integrator() : new ExplicitEuler();
+            ParticleGroup groupe = ParticleExamples.CreerChute(methode, 0f, 8f, 1f, 1f);
             int pas = Mathf.RoundToInt(2f / dt);
             for (int i = 0; i < pas; i++) groupe.Step(dt);
-            float y = ExperiencesParticules.HauteurExacte(2f, 8f, 1f, 1f);
-            float v = ExperiencesParticules.VitesseExacte(2f, 1f, 1f);
+            float y = ParticleExamples.HauteurExacte(2f, 8f, 1f, 1f);
+            float v = ParticleExamples.VitesseExacte(2f, 1f, 1f);
             return Mathf.Abs(groupe.Particles[0].position.y - y) + Mathf.Abs(groupe.Particles[0].velocity.y - v);
         }
 
-        [MenuItem("Haithem/Chapitre 2 Partie 1/Vérifier la lecture (Play Mode)")]
+        [MenuItem("Haithem/ParticleMotion/Vérifier la lecture (Play Mode)")]
         public static void VerifierLecture()
         {
             if (!EditorApplication.isPlaying) throw new InvalidOperationException("Lancer la scène en Play Mode.");
-            DemoParticules demo = UnityEngine.Object.FindFirstObjectByType<DemoParticules>();
+            ParticleDemo demo = UnityEngine.Object.FindFirstObjectByType<ParticleDemo>();
             if (demo == null) throw new InvalidOperationException("Ouvrir la scène des particules.");
             if (demo.EnPause) demo.ChangerPause();
             demo.Reinitialiser();

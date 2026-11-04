@@ -3,12 +3,12 @@ using PhysicsLib;
 using UnityEditor;
 using UnityEngine;
 
-namespace Haithem.Chapitre1
+namespace Haithem.RollingCube
 {
     // Quelques tests à lancer depuis le menu Haithem, hors Play Mode.
-    public static class Chapitre1Verification
+    public static class RollingCubeChecks
     {
-        [MenuItem("Haithem/Chapitre 1/Vérifier la géométrie")]
+        [MenuItem("Haithem/RollingCube/Vérifier la géométrie")]
         public static void Verifier()
         {
             // Avec un quart de tour autour de Z, X devient Y.
@@ -25,7 +25,7 @@ namespace Haithem.Chapitre1
             objet.hideFlags = HideFlags.HideAndDontSave;
             try
             {
-                CubeRoulant cube = objet.AddComponent<CubeRoulant>();
+                RollingCube cube = objet.AddComponent<RollingCube>();
                 foreach (float taille in new[] { 1f, 2f })
                 {
                     cube.taille = taille;
@@ -82,7 +82,7 @@ namespace Haithem.Chapitre1
             Debug.Log("Chapitre 1 : tests OK");
         }
 
-        static void VerifierSol(CubeRoulant cube)
+        static void VerifierSol(RollingCube cube)
         {
             for (int i = 0; i < 8; i++)
             {
